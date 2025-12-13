@@ -6,6 +6,7 @@ import Header from "@/components/Header";
 import ThemeProvider from "@/components/ThemeProvider";
 import AuthGuard from "@/components/AuthGuard";
 import LayoutWrapper from "@/components/LayoutWrapper";
+import VoiceAssistant from "@/components/VoiceAssistant";
 import { Toaster } from "@pheralb/toast";
 import "@pheralb/toast/dist/styles.css";
 
@@ -37,6 +38,7 @@ export default function RootLayout({
             <LayoutWrapper>
               {children}
             </LayoutWrapper>
+            <VoiceAssistant />
           </AuthGuard>
         </ThemeProvider>
         <Toaster />

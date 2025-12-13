@@ -3,12 +3,12 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  Wallet,
   Users,
   Calendar,
   Activity,
   Bot,
   ArrowUpRight,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import { fetchDashboardSummary } from "@/lib/api";
@@ -29,16 +29,16 @@ type DashboardSummary = {
 
 const fallbackSummary: DashboardSummary = {
   kpi: [
-    { label: "Выручка", value: "2 450 000", unit: "₽", change: "+12.5%", trend: "up", icon: "DollarSign", color: "#10B981" },
-    { label: "Расходы", value: "1 120 000", unit: "₽", change: "+4.2%", trend: "down", icon: "Wallet", color: "#EF4444" },
+    { label: "Выручка", value: "2 450 000", unit: "сум", change: "+12.5%", trend: "up", icon: "DollarSign", color: "#10B981" },
+    { label: "Проданных абонементов", value: "45", unit: "", change: "+8.3%", trend: "up", icon: "CreditCard", color: "#8B5CF6" },
     { label: "Кол-во новых клиентов", value: "128", unit: "", change: "+9.1%", trend: "up", icon: "Users", color: "#6366F1" },
     { label: "Кол-во записей на сегодня", value: "57", unit: "", change: "-2.7%", trend: "down", icon: "Calendar", color: "#F59E0B" },
   ],
   load: [
-  { label: "BODY", value: 78, detail: "3 зала · 15 тренеров", color: "#6366F1" },
-  { label: "COWORKING", value: 71, detail: "21/30 мест", color: "#10B981" },
-  { label: "COFFEE", value: 64, detail: "Avg чек 480 ₽", color: "#F59E0B" },
-  { label: "KIDS", value: 58, detail: "Группы 6-10 лет", color: "#EF4444" },
+  { label: "Коворкинг", value: 71, detail: "21/30 мест", color: "#10B981" },
+  { label: "Детская", value: 58, detail: "Группы 6-10 лет", color: "#EF4444" },
+  { label: "Body Mind", value: 78, detail: "12 занятий · 98 записей", color: "#6366F1" },
+  { label: "Pilates Reformer", value: 85, detail: "18 занятий · 108 записей", color: "#C86B58" },
   ],
   highlights: [
   { title: "Body: удержание +6%", detail: "Абонементы 12 занятий растут быстрее остальных.", tone: "positive" },
@@ -49,7 +49,7 @@ const fallbackSummary: DashboardSummary = {
 
 const iconMap = {
   DollarSign,
-  Wallet,
+  CreditCard,
   Users,
   Calendar,
 } as const;

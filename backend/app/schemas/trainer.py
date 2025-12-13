@@ -15,9 +15,24 @@ class TrainerCreate(TrainerBase):
     pass
 
 
+class TrainerUpdate(BaseModel):
+    full_name: str | None = Field(None, max_length=255)
+    phone: str | None = Field(None, max_length=64)
+    directions: list[str] | None = None
+    schedule: str | None = Field(None, max_length=255)
+    comment: str | None = None
+
+
 class Trainer(TrainerBase):
     id: str = Field(..., description="Public identifier")
 
     model_config = {"from_attributes": True}
+
+
+
+
+
+
+
 
 

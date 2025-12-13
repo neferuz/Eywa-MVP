@@ -36,7 +36,8 @@ import {
   deleteCategory,
 } from "@/lib/api";
 
-type ServiceCategory = {
+// UI shape for categories on the page (separate from API type)
+type UiServiceCategory = {
   id: string;
   name: string;
   icon: ComponentType<{ className?: string }>;
@@ -62,10 +63,11 @@ const getCategoryMeta = (name: string): { icon: ComponentType<{ className?: stri
 
 type ServiceForm = BodyServiceCreate;
 
-const directionLabels: Record<"Body" | "Coworking" | "Coffee", string> = {
+const directionLabels: Record<"Body" | "Coworking" | "Coffee" | "Kids", string> = {
   Body: "Body&mind",
   Coworking: "Coworking",
   Coffee: "Детская",
+  Kids: "Дети",
 };
 
 export default function BodyServicesPage() {
@@ -90,7 +92,7 @@ export default function BodyServicesPage() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [categoriesList, setCategoriesList] = useState<ServiceCategory[]>([]);
+  const [categoriesList, setCategoriesList] = useState<UiServiceCategory[]>([]);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [originalCategoryName, setOriginalCategoryName] = useState<string | null>(null);
@@ -116,7 +118,18 @@ export default function BodyServicesPage() {
         // Загружаем категории отдельно, если не удалось - продолжаем без них
         try {
           const categoriesData = await fetchCategories();
-          setCategoriesList(categoriesData);
+          setCategoriesList(
+            categoriesData.map((c) => {
+              const meta = getCategoryMeta(c.name);
+              return {
+                id: c.id,
+                name: c.name,
+                icon: meta.icon,
+                accent: meta.accent,
+                services: [],
+              };
+            }),
+          );
         } catch (catErr) {
           // Игнорируем ошибку загрузки категорий - работаем без них
           console.warn("Не удалось загрузить категории:", catErr);
@@ -131,7 +144,7 @@ export default function BodyServicesPage() {
     load();
   }, []);
 
-  const categories: ServiceCategory[] = useMemo(() => {
+  const categories: UiServiceCategory[] = useMemo(() => {
     // Группируем услуги по категориям
     const grouped = new Map<string, BodyService[]>();
     services.forEach((svc) => {
@@ -315,28 +328,30 @@ export default function BodyServicesPage() {
     setIsCategorySubmitting(true);
     setError(null);
     try {
-      let updatedCategory: ServiceCategory;
       const newName = categoryForm.name.trim();
       
       if (editingCategoryId) {
         // Обновляем существующую категорию
-        updatedCategory = await updateCategory(editingCategoryId, categoryForm);
+        await updateCategory(editingCategoryId, categoryForm);
       } else {
         // Если editingCategoryId нет, проверяем, есть ли категория с таким именем в БД
         const existing = categoriesList.find(c => c.name === newName);
         if (existing) {
           // Если категория с таким именем уже есть, обновляем её
-          updatedCategory = await updateCategory(existing.id, categoryForm);
+          await updateCategory(existing.id, categoryForm);
         } else {
           // Создаем новую категорию
-          updatedCategory = await createCategory(categoryForm);
+          await createCategory(categoryForm);
         }
       }
       
       // Обновляем список категорий
       try {
         const updated = await fetchCategories();
-        setCategoriesList(updated);
+        setCategoriesList(updated.map((c) => {
+          const meta = getCategoryMeta(c.name);
+          return { id: c.id, name: c.name, icon: meta.icon, accent: meta.accent, services: [] };
+        }));
       } catch (fetchErr) {
         console.warn("Не удалось обновить список категорий:", fetchErr);
       }
@@ -384,7 +399,10 @@ export default function BodyServicesPage() {
       // Обновляем список категорий
       try {
         const updated = await fetchCategories();
-        setCategoriesList(updated);
+        setCategoriesList(updated.map((c) => {
+          const meta = getCategoryMeta(c.name);
+          return { id: c.id, name: c.name, icon: meta.icon, accent: meta.accent, services: [] };
+        }));
       } catch (fetchErr) {
         console.warn("Не удалось обновить список категорий:", fetchErr);
         // Удаляем из локального состояния

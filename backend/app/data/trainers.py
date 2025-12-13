@@ -26,3 +26,10 @@ def get_mock_trainer(public_id: str) -> Trainer | None:
     return next((t for t in MOCK_TRAINERS if t.id == public_id), None)
 
 
+
+
+
+
+
+
+

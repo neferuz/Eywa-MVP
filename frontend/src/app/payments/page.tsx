@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Card from "@/components/Card";
 import Modal from "@/components/Modal";
@@ -63,11 +64,15 @@ const PAYMENT_METHODS = [
 ];
 
 export default function PaymentsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [serviceCategories, setServiceCategories] = useState<ServiceCategoryWithServices[]>([]);
   const [categories, setCategories] = useState<PaymentServiceCategory[]>([]);
   const [services, setServices] = useState<PaymentService[]>([]);
   const [loading, setLoading] = useState(true);
+  const [extendMode, setExtendMode] = useState<{ clientId: string; clientName: string; serviceName: string } | null>(null);
+  const [highlightedServiceId, setHighlightedServiceId] = useState<string | null>(null);
   const [selectedService, setSelectedService] = useState<(ServiceItem & { category: PaymentServiceCategory }) | null>(null);
   const [drawerState, setDrawerState] = useState<"closed" | "open" | "closing">("closed");
   const [quantity, setQuantity] = useState(1);
@@ -102,10 +107,7 @@ export default function PaymentsPage() {
     name: "",
     description: "",
     price: "",
-    priceLabel: "",
     duration: "",
-    trainer: "",
-    billing: "perService" as "perHour" | "perService" | "custom",
     hint: "",
   });
 
@@ -123,11 +125,69 @@ export default function PaymentsPage() {
         setServices(servicesData);
         setAllClients(clientsData);
 
+        // Проверяем query параметры для режима продления
+        const clientId = searchParams.get("client_id");
+        const serviceName = searchParams.get("service_name");
+        let isExtendMode = false;
+
+        if (clientId && serviceName) {
+          isExtendMode = true;
+          // Находим клиента
+          const client = clientsData.find((c: any) => c.id === clientId || c.public_id === clientId);
+          if (client) {
+            setExtendMode({
+              clientId: client.id || client.public_id,
+              clientName: client.name || "Клиент",
+              serviceName: serviceName,
+            });
+            setSelectedClientId(client.id || client.public_id);
+            setClientName(client.name || "");
+            setClientPhone(client.phone || "");
+          }
+
+          // Не выделяем услугу автоматически - пусть пользователь сам выберет
+          // setHighlightedServiceId(null);
+
+          // Очищаем URL от query параметров
+          router.replace("/payments", { scroll: false });
+        }
+
         // Group services by category
-        const grouped: ServiceCategoryWithServices[] = categoriesData.map((cat) => ({
-          ...cat,
-          services: servicesData.filter((s) => s.category_id === cat.id),
-        }));
+        // Если режим продления - фильтруем услуги в категории BODY (только абонементы)
+        const grouped: ServiceCategoryWithServices[] = categoriesData.map((cat) => {
+          let categoryServices = servicesData.filter((s) => s.category_id === cat.id);
+          
+          // Если режим продления и категория BODY - показываем только абонементы
+          if (isExtendMode && (cat.name.toLowerCase() === "body" || cat.name.toLowerCase() === "bODY")) {
+            categoryServices = categoryServices.filter((s) => {
+              // Определяем абонемент по:
+              // 1. Наличию слова "абонемент" в названии
+              // 2. Наличию в duration числа больше 1 + "занят" (например "12 занятий")
+              const hasAbonementInName = s.name.toLowerCase().includes("абонемент");
+              
+              // Проверяем duration на наличие числа больше 1 и слова "занят"
+              let isAbonementByDuration = false;
+              if (s.duration) {
+                const durationLower = s.duration.toLowerCase();
+                // Ищем паттерн типа "12 занятий", "8 занятий" и т.д.
+                const match = durationLower.match(/(\d+)\s*занят/i);
+                if (match) {
+                  const count = parseInt(match[1], 10);
+                  // Если больше 1 занятия - это абонемент
+                  isAbonementByDuration = count > 1;
+                }
+              }
+              
+              // Показываем только абонементы
+              return hasAbonementInName || isAbonementByDuration;
+            });
+          }
+          
+          return {
+            ...cat,
+            services: categoryServices,
+          };
+        });
         setServiceCategories(grouped);
       } catch (err) {
         console.error("Failed to load payment services:", err);
@@ -138,7 +198,7 @@ export default function PaymentsPage() {
       }
     }
     loadData();
-  }, []);
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (categories.length > 0 && newServiceData.categoryId === 0) {
@@ -169,9 +229,12 @@ export default function PaymentsPage() {
     setPaymentMethods({});
     setComment("");
     setClientSearch("");
-    setSelectedClientId("");
-    setClientName("");
-    setClientPhone("");
+    // В режиме продления не сбрасываем выбранного клиента
+    if (!extendMode) {
+      setSelectedClientId("");
+      setClientName("");
+      setClientPhone("");
+    }
     setClientSearchResults([]);
     setShowClientSearch(false);
     setDrawerState("open");
@@ -222,18 +285,27 @@ export default function PaymentsPage() {
 
   const visibleDrawer = drawerState !== "closed" && selectedService;
 
+  // Парсим количество из duration (например, "12 занятий" -> 12)
+  const parseQuantityFromDuration = (duration: string | null | undefined): number => {
+    if (!duration) return 1;
+    const match = duration.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 1;
+  };
+
   const effectiveQuantity = selectedService
     ? selectedService.billing === "perHour"
       ? hours
       : selectedService.billing === "custom"
         ? 1
-        : quantity
+        : parseQuantityFromDuration(selectedService.duration) // Парсим из duration для perService
     : 0;
 
   const total = selectedService
     ? selectedService.billing === "custom"
       ? Number(manualPrice.replace(/\s/g, "")) || 0
-      : selectedService.price * effectiveQuantity
+      : selectedService.billing === "perHour"
+        ? selectedService.price * hours
+        : selectedService.price // Для perService цена уже указана за весь абонемент, не умножаем
     : 0;
 
   const formattedTotal = currencyFormatter.format(total);
@@ -248,18 +320,18 @@ export default function PaymentsPage() {
     }
     try {
       const priceValue = parsePrice(newServiceData.price);
-      const priceLabel = newServiceData.priceLabel.trim() || `${formatPrice(priceValue)} сум`;
+      const priceLabel = `${formatPrice(priceValue)} сум`;
       
       const payload: PaymentServiceCreate = {
         category_id: newServiceData.categoryId,
       name: newServiceData.name.trim(),
       price: priceValue,
         price_label: priceLabel,
-        billing: newServiceData.billing,
-        hint: newServiceData.trainer ? `Тренер: ${newServiceData.trainer}` : newServiceData.hint || null,
+        billing: "perService", // Значение по умолчанию
+        hint: newServiceData.hint || null,
         description: newServiceData.description.trim() || null,
         duration: newServiceData.duration.trim() || null,
-        trainer: newServiceData.trainer.trim() || null,
+        trainer: null,
     };
       
       const created = await createPaymentService(payload);
@@ -283,11 +355,8 @@ export default function PaymentsPage() {
       name: "",
       description: "",
       price: "",
-        priceLabel: "",
       duration: "",
-      trainer: "",
-        billing: "perService",
-        hint: "",
+      hint: "",
       });
     } catch (err) {
       console.error("Failed to create service:", err);
@@ -303,10 +372,7 @@ export default function PaymentsPage() {
       name: service.name,
       description: service.description || "",
       price: formatPrice(service.price),
-      priceLabel: service.price_label,
       duration: service.duration || "",
-      trainer: service.trainer || "",
-      billing: service.billing,
       hint: service.hint || "",
     });
     setIsEditModalOpen(true);
@@ -318,18 +384,18 @@ export default function PaymentsPage() {
     }
     try {
       const priceValue = parsePrice(newServiceData.price);
-      const priceLabel = newServiceData.priceLabel.trim() || `${formatPrice(priceValue)} сум`;
+      const priceLabel = `${formatPrice(priceValue)} сум`;
       
       const payload: PaymentServiceUpdate = {
         category_id: newServiceData.categoryId,
         name: newServiceData.name.trim(),
         price: priceValue,
         price_label: priceLabel,
-        billing: newServiceData.billing,
-        hint: newServiceData.trainer ? `Тренер: ${newServiceData.trainer}` : newServiceData.hint || null,
+        billing: editingService?.billing || "perService", // Сохраняем существующее значение
+        hint: newServiceData.hint || null,
         description: newServiceData.description.trim() || null,
         duration: newServiceData.duration.trim() || null,
-        trainer: newServiceData.trainer.trim() || null,
+        trainer: editingService?.trainer || null, // Сохраняем существующее значение
       };
       
       await updatePaymentService(editingService.public_id, payload);
@@ -460,10 +526,7 @@ export default function PaymentsPage() {
       name: "",
       description: "",
       price: "",
-      priceLabel: "",
       duration: "",
-      trainer: "",
-      billing: "perService",
       hint: "",
     });
   };
@@ -485,6 +548,67 @@ export default function PaymentsPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Баннер для режима продления абонемента */}
+      {extendMode && (
+        <Card style={{ 
+          background: "linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)",
+          border: "1px solid rgba(99, 102, 241, 0.2)",
+        }}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "10px",
+                background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                <CreditCard className="h-5 w-5" style={{ color: "#fff" }} />
+              </div>
+              <div>
+                <div className="text-sm font-semibold" style={{ color: "var(--foreground)", marginBottom: "0.25rem" }}>
+                  Продление абонемента для {extendMode.clientName}
+                </div>
+                <div className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                  Выберите абонемент для продления из категории BODY
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setExtendMode(null);
+                setHighlightedServiceId(null);
+                setSelectedClientId("");
+                setClientName("");
+                setClientPhone("");
+              }}
+              style={{
+                padding: "0.5rem 0.75rem",
+                borderRadius: "8px",
+                border: "1px solid var(--card-border)",
+                background: "var(--background)",
+                color: "var(--foreground)",
+                fontSize: "0.8125rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--muted)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--background)";
+              }}
+            >
+              Отменить
+            </button>
+          </div>
+        </Card>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold" style={{ color: "var(--foreground)" }}>Услуги и оплаты</h1>
@@ -564,13 +688,20 @@ export default function PaymentsPage() {
             </div>
 
             <div className="space-y-2">
-              {category.services.map((service) => (
+              {category.services.map((service) => {
+                const isHighlighted = highlightedServiceId === service.public_id;
+                return (
                   <div
                     key={service.public_id}
                     className="group w-full rounded-2xl px-4 py-3 flex items-center justify-between gap-4"
                   style={{
-                    background: "var(--background)",
-                    border: "1px solid var(--card-border)",
+                    background: isHighlighted 
+                      ? "linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)"
+                      : "var(--background)",
+                    border: isHighlighted 
+                      ? "2px solid rgba(99, 102, 241, 0.4)"
+                      : "1px solid var(--card-border)",
+                    boxShadow: isHighlighted ? "0 4px 12px rgba(99, 102, 241, 0.15)" : "none",
                   }}
                   >
                     <button
@@ -580,6 +711,12 @@ export default function PaymentsPage() {
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>{service.name}</span>
                         <span className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>{service.price_label}</span>
+                    {service.duration && (
+                      <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                        <Clock className="h-3 w-3 inline mr-1" style={{ verticalAlign: "middle" }} />
+                        {service.duration}
+                      </span>
+                    )}
                     {service.hint && (
                       <span className="text-xs" style={{ color: "rgba(15, 118, 110, 0.8)" }}>{service.hint}</span>
                     )}
@@ -606,7 +743,8 @@ export default function PaymentsPage() {
                       </button>
                     </div>
                   </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         ))}
@@ -721,6 +859,34 @@ export default function PaymentsPage() {
                   </div>
                 </div>
               </div>
+              {selectedService.duration && (
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.625rem 0.75rem",
+                  borderRadius: "10px",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--muted)",
+                }}>
+                  <div style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "8px",
+                    background: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    <Clock className="h-3.5 w-3.5" style={{ color: "#fff" }} />
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: "0.625rem", color: "var(--muted-foreground)", marginBottom: "0.125rem", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>Длительность</div>
+                    <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedService.duration}</div>
+                  </div>
+                </div>
+              )}
 
               <form 
                 className="body-services__form" 
@@ -949,34 +1115,37 @@ export default function PaymentsPage() {
                           </div>
                         </div>
                       </Link>
-                      <button
-                        type="button"
-                        onClick={handleClearClient}
-                        title="Очистить выбор"
-                        style={{
-                          width: "28px",
-                          height: "28px",
-                          borderRadius: "8px",
-                          border: "none",
-                          background: "transparent",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          transition: "all 0.2s ease",
-                          flexShrink: 0,
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
-                          e.currentTarget.style.transform = "scale(1.1)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "transparent";
-                          e.currentTarget.style.transform = "scale(1)";
-                        }}
-                      >
-                        <X className="h-4 w-4" style={{ color: "#EF4444" }} />
-                      </button>
+                      {/* Скрываем кнопку удаления в режиме продления */}
+                      {!extendMode && (
+                        <button
+                          type="button"
+                          onClick={handleClearClient}
+                          title="Очистить выбор"
+                          style={{
+                            width: "28px",
+                            height: "28px",
+                            borderRadius: "8px",
+                            border: "none",
+                            background: "transparent",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            flexShrink: 0,
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                            e.currentTarget.style.transform = "scale(1.1)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "transparent";
+                            e.currentTarget.style.transform = "scale(1)";
+                          }}
+                        >
+                          <X className="h-4 w-4" style={{ color: "#EF4444" }} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -985,7 +1154,7 @@ export default function PaymentsPage() {
                   </p>
                 )}
 
-                {selectedService.billing === "custom" ? (
+                {selectedService.billing === "custom" && (
                   <div className="body-services__form-field">
                     <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                       <CreditCard className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
@@ -1005,7 +1174,8 @@ export default function PaymentsPage() {
                       required
                     />
                   </div>
-                ) : selectedService.billing === "perHour" ? (
+                )}
+                {selectedService.billing === "perHour" && (
                   <div className="body-services__form-field">
                     <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                       <Clock className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
@@ -1050,78 +1220,7 @@ export default function PaymentsPage() {
                       }}>{hours}</div>
                       <button
                         type="button"
-                        onClick={() => setHours((value) => Math.min(12, value + 1))}
-                        style={{
-                          width: "32px",
-                          height: "32px",
-                          borderRadius: "8px",
-                          border: "1px solid var(--card-border)",
-                          background: "var(--background)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          transition: "all 0.2s ease",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "var(--muted)";
-                          e.currentTarget.style.borderColor = "var(--foreground)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "var(--background)";
-                          e.currentTarget.style.borderColor = "var(--card-border)";
-                        }}
-                      >
-                        <Plus className="h-3.5 w-3.5" style={{ color: "var(--foreground)" }} />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="body-services__form-field">
-                    <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <Plus className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                      Количество
-                    </span>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
-                      <button
-                        type="button"
-                        onClick={() => setQuantity((value) => Math.max(1, value - 1))}
-                        style={{
-                          width: "32px",
-                          height: "32px",
-                          borderRadius: "8px",
-                          border: "1px solid var(--card-border)",
-                          background: "var(--background)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          cursor: "pointer",
-                          transition: "all 0.2s ease",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "var(--muted)";
-                          e.currentTarget.style.borderColor = "var(--foreground)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "var(--background)";
-                          e.currentTarget.style.borderColor = "var(--card-border)";
-                        }}
-                      >
-                        <Minus className="h-3.5 w-3.5" style={{ color: "var(--foreground)" }} />
-                      </button>
-                      <div style={{ 
-                        width: "56px", 
-                        textAlign: "center", 
-                        fontSize: "0.8125rem", 
-                        fontWeight: 600, 
-                        color: "var(--foreground)",
-                        padding: "0.5rem",
-                        background: "var(--muted)",
-                        borderRadius: "8px",
-                      }}>{quantity}</div>
-                      <button
-                        type="button"
-                        onClick={() => setQuantity((value) => Math.min(50, value + 1))}
+                        onClick={() => setHours((value) => value + 1)}
                         style={{
                           width: "32px",
                           height: "32px",
@@ -1470,30 +1569,6 @@ export default function PaymentsPage() {
               />
             </label>
             <label className="body-services__form-field">
-              <span>Метка цены (опционально)</span>
-              <input
-                type="text"
-                value={newServiceData.priceLabel}
-                onChange={(event) =>
-                  setNewServiceData((prev) => ({ ...prev, priceLabel: event.target.value }))
-                }
-                placeholder="200 000 сум / час"
-              />
-              </label>
-            <label className="body-services__form-field">
-              <span>Тип оплаты</span>
-              <select
-                value={newServiceData.billing}
-                onChange={(event) =>
-                  setNewServiceData((prev) => ({ ...prev, billing: event.target.value as "perHour" | "perService" | "custom" }))
-                }
-              >
-                <option value="perService">За услугу</option>
-                <option value="perHour">За час</option>
-                <option value="custom">Ручной ввод</option>
-              </select>
-            </label>
-            <label className="body-services__form-field">
               <span>Длительность</span>
               <input
                 type="text"
@@ -1501,18 +1576,7 @@ export default function PaymentsPage() {
                 onChange={(event) =>
                   setNewServiceData((prev) => ({ ...prev, duration: event.target.value }))
                 }
-                placeholder="60 минут"
-              />
-              </label>
-            <label className="body-services__form-field">
-              <span>Тренер</span>
-              <input
-                type="text"
-                value={newServiceData.trainer}
-                onChange={(event) =>
-                  setNewServiceData((prev) => ({ ...prev, trainer: event.target.value }))
-                }
-                placeholder="Имя тренера"
+                placeholder="12 занятий"
               />
               </label>
             <label className="body-services__form-field" style={{ gridColumn: "1 / -1" }}>
@@ -1592,30 +1656,6 @@ export default function PaymentsPage() {
               />
             </label>
             <label className="body-services__form-field">
-              <span>Метка цены (опционально)</span>
-              <input
-                type="text"
-                value={newServiceData.priceLabel}
-                onChange={(event) =>
-                  setNewServiceData((prev) => ({ ...prev, priceLabel: event.target.value }))
-                }
-                placeholder="200 000 сум / час"
-              />
-            </label>
-            <label className="body-services__form-field">
-              <span>Тип оплаты</span>
-              <select
-                value={newServiceData.billing}
-                onChange={(event) =>
-                  setNewServiceData((prev) => ({ ...prev, billing: event.target.value as "perHour" | "perService" | "custom" }))
-                }
-              >
-                <option value="perService">За услугу</option>
-                <option value="perHour">За час</option>
-                <option value="custom">Ручной ввод</option>
-              </select>
-            </label>
-            <label className="body-services__form-field">
               <span>Длительность</span>
               <input
                 type="text"
@@ -1623,18 +1663,7 @@ export default function PaymentsPage() {
                 onChange={(event) =>
                   setNewServiceData((prev) => ({ ...prev, duration: event.target.value }))
                 }
-                placeholder="60 минут"
-              />
-            </label>
-            <label className="body-services__form-field">
-              <span>Тренер</span>
-              <input
-                type="text"
-                value={newServiceData.trainer}
-                onChange={(event) =>
-                  setNewServiceData((prev) => ({ ...prev, trainer: event.target.value }))
-                }
-                placeholder="Имя тренера"
+                placeholder="12 занятий"
               />
             </label>
             <label className="body-services__form-field" style={{ gridColumn: "1 / -1" }}>

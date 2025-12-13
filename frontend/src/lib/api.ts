@@ -19,11 +19,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const res = await fetch(`${API_BASE_URL}${path}`, {
+    const url = `${API_BASE_URL}${path}`;
+    console.log(`[API] ${init?.method || 'GET'} ${url}`, init);
+    
+    const res = await fetch(url, {
       cache: "no-store",
       ...init,
       headers,
     });
+
+    console.log(`[API] Response status: ${res.status}`, res);
 
     if (res.status === 404) {
       throw Object.assign(new Error("Not found"), { code: 404 });
@@ -41,6 +46,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
     if (!res.ok) {
       const body = await res.text();
+      console.error(`[API] Error ${res.status}:`, body);
       throw new Error(`API error ${res.status}: ${body || res.statusText}`);
     }
 
@@ -50,10 +56,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
 
     const text = await res.text();
+    console.log(`[API] Response text:`, text);
     if (!text) {
       return undefined as T;
     }
-    return JSON.parse(text) as T;
+    const data = JSON.parse(text) as T;
+    console.log(`[API] Parsed data:`, data);
+    return data;
   } catch (error) {
     // Обрабатываем ошибки сети
     if (error instanceof TypeError && error.message.includes("fetch")) {
@@ -112,9 +121,22 @@ export async function loginApi(data: LoginRequest): Promise<TokenResponse> {
     body: JSON.stringify(data),
   });
 
+  const contentType = res.headers.get("content-type") || "";
+
   if (!res.ok) {
+    // Если сервер вернул HTML (например, Cloudflare/NGROK страница) — не пытаемся парсить JSON
+    if (!contentType.includes("application/json")) {
+      const body = await res.text();
+      throw new Error(body || "Неверный email или пароль");
+    }
+    const body = await res.json().catch(async () => ({ detail: await res.text() }));
+    throw new Error((body as { detail?: string }).detail || "Неверный email или пароль");
+  }
+
+  // Защита от HTML/текстовых ответов
+  if (!contentType.includes("application/json")) {
     const body = await res.text();
-    throw new Error(body || "Неверный email или пароль");
+    throw new Error(body || "Сервер вернул не-JSON ответ");
   }
 
   return res.json();
@@ -189,6 +211,13 @@ export async function createTrainer(payload: TrainerCreateRequest): Promise<Trai
   });
 }
 
+export async function updateTrainer(id: string, payload: Partial<TrainerCreateRequest>): Promise<Trainer> {
+  return request<Trainer>(`/api/trainers/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function deleteTrainer(id: string): Promise<void> {
   await request<void>(`/api/trainers/${id}`, { method: "DELETE" });
 }
@@ -200,12 +229,20 @@ export async function fetchClientsFromApi<TClient>(
 ): Promise<TClient[]> {
   const search = new URLSearchParams();
 
-  if (filters?.query) search.set("query", filters.query);
-  if (filters?.direction) search.set("direction", filters.direction);
-  if (filters?.status) search.set("status", filters.status);
+  if (filters?.query && filters.query.trim()) {
+    search.set("query", filters.query.trim());
+  }
+  if (filters?.direction) {
+    search.set("direction", filters.direction);
+  }
+  if (filters?.status) {
+    search.set("status", filters.status);
+  }
 
   const qs = search.toString() ? `?${search.toString()}` : "";
-  return request<TClient[]>(`/api/clients${qs}`, init);
+  const url = `/api/clients${qs}`;
+  console.log("Fetching clients from API:", url);
+  return request<TClient[]>(url, init);
 }
 
 export async function fetchClientByIdFromApi<TClient>(
@@ -213,8 +250,32 @@ export async function fetchClientByIdFromApi<TClient>(
   init?: RequestInit,
 ): Promise<TClient | null> {
   try {
-    return await request<TClient>(`/api/clients/${id}`, init);
+    console.log("=== FETCHING CLIENT ===", id);
+    const url = `${API_BASE_URL}/api/clients/${id}`;
+    console.log("=== FETCH URL ===", url);
+    const result = await request<any>(`/api/clients/${id}`, {
+      method: "GET",
+      ...init,
+    });
+    console.log("=== FETCH RESULT (raw) ===", result);
+    
+    // Преобразуем snake_case в camelCase для совместимости
+    if (result && typeof result === 'object') {
+      const transformed = {
+        ...result,
+        contractNumber: result.contract_number ?? result.contractNumber,
+        subscriptionNumber: result.subscription_number ?? result.subscriptionNumber,
+        birthDate: result.birth_date ?? result.birthDate,
+        activationDate: result.activation_date ?? result.activationDate,
+        coachNotes: result.coach_notes ?? result.coachNotes,
+      };
+      console.log("=== FETCH RESULT (transformed) ===", transformed);
+      return transformed as TClient;
+    }
+    
+    return result as TClient;
   } catch (error) {
+    console.error("=== FETCH ERROR ===", error);
     if ((error as { code?: number }).code === 404) {
       return null;
     }
@@ -230,7 +291,7 @@ export type ClientCreateRequest = {
   birthDate?: string | null;
   instagram?: string | null;
   source?: "Instagram" | "Telegram" | "Рекомендации" | "Google";
-  direction?: "Body" | "Coworking" | "Coffee";
+  direction?: "Body" | "Coworking" | "Coffee" | "Pilates Reformer";
   status?: "Активный" | "Новый" | "Ушедший";
   contraindications?: string | null;
   coachNotes?: string | null;
@@ -249,6 +310,22 @@ export async function updateClient<TClient>(id: string, payload: ClientUpdateReq
   return request<TClient>(`/api/clients/${id}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function addClientVisit<TClient>(id: string, visitDate?: string): Promise<TClient> {
+  const url = visitDate 
+    ? `/api/clients/${id}/visits?visit_date=${encodeURIComponent(visitDate)}`
+    : `/api/clients/${id}/visits`;
+  return request<TClient>(url, {
+    method: "POST",
+  });
+}
+
+export async function removeClientVisit<TClient>(id: string, visitDate: string): Promise<TClient> {
+  const url = `/api/clients/${id}/visits?visit_date=${encodeURIComponent(visitDate)}`;
+  return request<TClient>(url, {
+    method: "DELETE",
   });
 }
 
@@ -627,6 +704,22 @@ export type PaymentCreate = {
   status?: "pending" | "completed" | "cancelled";
 };
 
+export type PaymentUpdate = {
+  client_id?: string | null;
+  client_name?: string | null;
+  client_phone?: string | null;
+  service_id?: string | null;
+  service_name?: string | null;
+  service_category?: string | null;
+  total_amount?: number;
+  cash_amount?: number;
+  transfer_amount?: number;
+  quantity?: number;
+  hours?: number | null;
+  comment?: string | null;
+  status?: "pending" | "completed" | "cancelled";
+};
+
 export async function fetchPayments(service_name?: string, client_id?: string): Promise<Payment[]> {
   const params = new URLSearchParams();
   if (service_name) params.append("service_name", service_name);
@@ -640,5 +733,238 @@ export async function createPayment(payload: PaymentCreate): Promise<Payment> {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function updatePayment(payment_id: string, payload: PaymentUpdate): Promise<Payment> {
+  return request<Payment>(`/api/payments/${payment_id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deletePayment(payment_id: string): Promise<void> {
+  return request<void>(`/api/payments/${payment_id}`, {
+    method: "DELETE",
+  });
+}
+
+// Schedule Bookings API
+export type ScheduleBookingClient = {
+  client_id: string;
+  client_name: string;
+  client_phone?: string | null;
+};
+
+export type ScheduleBooking = {
+  id?: string; // Может отсутствовать из-за алиаса в Pydantic
+  public_id?: string; // Алиас для id в Pydantic схеме
+  booking_date: string; // ISO date string
+  booking_time: string; // HH:MM format
+  category: string; // "Body Mind", "Pilates Reformer", etc.
+  service_name?: string | null; // Для Body Mind
+  trainer_id?: string | null;
+  trainer_name?: string | null;
+  clients: ScheduleBookingClient[];
+  max_capacity: number;
+  current_count: number;
+  status: "Бронь" | "Оплачено" | "Свободно";
+  notes?: string | null;
+  capsule_id?: string | null;
+  capsule_name?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ScheduleBookingCreate = {
+  booking_date: string; // ISO date string
+  booking_time: string; // HH:MM format
+  category: string;
+  service_name?: string | null;
+  trainer_id?: string | null;
+  trainer_name?: string | null;
+  clients: ScheduleBookingClient[];
+  max_capacity: number;
+  current_count?: number;
+  status?: "Бронь" | "Оплачено" | "Свободно";
+  notes?: string | null;
+  capsule_id?: string | null;
+  capsule_name?: string | null;
+};
+
+export type ScheduleBookingUpdate = Partial<ScheduleBookingCreate>;
+
+export type ScheduleBookingFilters = {
+  start_date?: string; // ISO date string
+  end_date?: string; // ISO date string
+  category?: string;
+  trainer_id?: string;
+  booking_status?: "Бронь" | "Оплачено" | "Свободно";
+};
+
+export async function fetchScheduleBookings(
+  filters?: ScheduleBookingFilters
+): Promise<ScheduleBooking[]> {
+  const search = new URLSearchParams();
+  if (filters?.start_date) search.set("start_date", filters.start_date);
+  if (filters?.end_date) search.set("end_date", filters.end_date);
+  if (filters?.category) search.set("category", filters.category);
+  if (filters?.trainer_id) search.set("trainer_id", filters.trainer_id);
+  if (filters?.booking_status) search.set("booking_status", filters.booking_status);
+
+  const qs = search.toString() ? `?${search.toString()}` : "";
+  return request<ScheduleBooking[]>(`/api/schedule/bookings${qs}`);
+}
+
+export async function fetchScheduleBookingById(id: string): Promise<ScheduleBooking | null> {
+  try {
+    return await request<ScheduleBooking>(`/api/schedule/bookings/${id}`);
+  } catch (error) {
+    if ((error as { code?: number }).code === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function createScheduleBooking(
+  payload: ScheduleBookingCreate
+): Promise<ScheduleBooking> {
+  return request<ScheduleBooking>("/api/schedule/bookings", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateScheduleBooking(
+  id: string,
+  payload: ScheduleBookingUpdate
+): Promise<ScheduleBooking> {
+  return request<ScheduleBooking>(`/api/schedule/bookings/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteScheduleBooking(id: string): Promise<void> {
+  await request<void>(`/api/schedule/bookings/${id}`, { method: "DELETE" });
+}
+
+// Body Schedule Analytics API
+export type OverviewStats = {
+  total_slots: number;
+  booked_slots: number;
+  load_percentage: number;
+};
+
+export type GroupAnalytics = {
+  id: string;
+  name: string;
+  label: string;
+  total_classes: number;
+  total_bookings: number;
+  load: number;
+  coaches: string[];
+  avg_occupancy: number;
+};
+
+export type CoachLoad = {
+  name: string;
+  load: number;
+  classes: number;
+};
+
+export type RoomLoad = {
+  room: string;
+  load: number;
+};
+
+export type BodyScheduleAnalytics = {
+  overview: OverviewStats;
+  groups: GroupAnalytics[];
+  coaches: CoachLoad[];
+  rooms: RoomLoad[];
+};
+
+export async function fetchBodyScheduleAnalytics(
+  startDate?: string,
+  endDate?: string
+): Promise<BodyScheduleAnalytics> {
+  const params = new URLSearchParams();
+  if (startDate) params.set("start_date", startDate);
+  if (endDate) params.set("end_date", endDate);
+  
+  const queryString = params.toString();
+  const url = `/api/body/schedule/analytics${queryString ? `?${queryString}` : ""}`;
+  
+  return request<BodyScheduleAnalytics>(url);
+}
+
+// AI Assistant API
+export type AIAssistantMessage = {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+};
+
+export type AIAssistantRequest = {
+  message: string;
+  conversation_history?: Array<{ role: string; content: string }> | null;
+};
+
+export type AIAssistantResponse = {
+  message: string;
+  data?: Record<string, any> | null;
+};
+
+export async function chatWithAIAssistant(
+  payload: AIAssistantRequest
+): Promise<AIAssistantResponse> {
+  return request<AIAssistantResponse>("/api/ai-assistant/chat", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getAIAssistantStats(): Promise<Record<string, any>> {
+  return request<Record<string, any>>("/api/ai-assistant/stats");
+}
+
+// TTS API (ElevenLabs)
+export async function textToSpeech(text: string): Promise<Blob> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const url = `${API_BASE_URL}/api/tts/speak`;
+  
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ text }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`TTS error ${res.status}: ${errorText || res.statusText}`);
+  }
+
+  return await res.blob();
+}
+
+export async function getElevenLabsVoices(): Promise<{
+  all_voices: any[];
+  russian_female_voices: any[];
+  recommended: any | null;
+}> {
+  return request<{
+    all_voices: any[];
+    russian_female_voices: any[];
+    recommended: any | null;
+  }>("/api/tts/voices");
 }
 

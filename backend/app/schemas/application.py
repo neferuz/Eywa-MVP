@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from enum import Enum
 from typing import Literal
 
@@ -83,4 +84,5 @@ class Application(BaseModel):
     owner: str
     lastActivity: str = Field(..., alias="last_activity")
     chatHistory: list[ChatMessage] | None = Field(None, alias="chat_history")
+    createdAt: datetime = Field(..., alias="created_at")
 

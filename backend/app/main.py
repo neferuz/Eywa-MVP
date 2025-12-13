@@ -15,12 +15,11 @@ def create_app() -> FastAPI:
     )
     
     # Настройка CORS для разрешения запросов с фронтенда
-    # CORS: dev-friendly — allow all origins so that localhost:3000 works reliably.
-    # If you need stricter rules, adjust CORS_ORIGINS env; in local we keep it open.
+    # Используем явные origins из настроек, чтобы можно было использовать allow_credentials=True
+    # Для добавления новых origins используйте переменную окружения CORS_ORIGINS
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_origin_regex=".*",
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -165,9 +165,6 @@ export default function DateRangePicker({ value, onChange }: Props) {
                   color: "var(--muted-foreground)",
                   opacity: 0.4,
                 },
-                day_hover: {
-                  background: "rgba(99, 102, 241, 0.1)",
-                },
               }}
               locale={undefined}
             />

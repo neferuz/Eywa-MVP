@@ -132,6 +132,17 @@ async def update_service(
     payload: PaymentServiceUpdate,
     session: AsyncSession = Depends(get_session),
 ) -> PaymentService:
+    """Обновление услуги.
+    
+    При обновлении можно указать только необходимые поля:
+    - category_id: ID категории
+    - name: Название услуги
+    - price: Стоимость в сумах
+    - duration: Длительность в виде количества занятий/визитов (например: "12 занятий")
+    - description: Описание услуги
+    
+    Поля `billing` и `trainer` не используются в форме редактирования.
+    """
     repo = PaymentServiceRepository(session)
     existing = await repo.get_by_public_id(service_id)
     if not existing:

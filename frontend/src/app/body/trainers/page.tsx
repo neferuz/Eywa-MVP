@@ -4,15 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Card from "@/components/Card";
 import Link from "next/link";
 import Modal from "@/components/Modal";
-import { AlertCircle, Activity, CalendarCheck, Loader2, Plus, Search, User, Filter, Trash2, AlertTriangle } from "lucide-react";
+import { AlertCircle, Activity, Loader2, Plus, Search, User, Filter, Trash2, AlertTriangle } from "lucide-react";
 import { Trainer, createTrainer, fetchTrainers, deleteTrainer } from "@/lib/api";
 import { toast } from "@pheralb/toast";
 
 type TrainerForm = {
   full_name: string;
   phone: string;
-  directions: string;
-  schedule: string;
+  directions: string[]; // Массив выбранных направлений
   comment: string;
 };
 
@@ -30,8 +29,7 @@ export default function BodyTrainersPage() {
   const [form, setForm] = useState<TrainerForm>({
     full_name: "",
     phone: "",
-    directions: "",
-    schedule: "",
+    directions: [],
     comment: "",
   });
 
@@ -83,8 +81,7 @@ export default function BodyTrainersPage() {
     setForm({
       full_name: "",
       phone: "",
-      directions: "",
-      schedule: "",
+      directions: [],
       comment: "",
     });
   };
@@ -98,17 +95,22 @@ export default function BodyTrainersPage() {
       return;
     }
 
+    if (form.directions.length === 0) {
+      setError("Выберите хотя бы одно направление");
+      toast.warning({
+        text: "Выберите хотя бы одно направление",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     try {
       const payload = {
         full_name: form.full_name.trim(),
         phone: form.phone.trim(),
-        directions: form.directions
-          .split(",")
-          .map((item) => item.trim())
-          .filter(Boolean),
-        schedule: form.schedule.trim() || null,
+        directions: form.directions,
+        schedule: null, // График работы больше не используется
         comment: form.comment.trim() || null,
       };
       const created = await createTrainer(payload);
@@ -130,6 +132,15 @@ export default function BodyTrainersPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const toggleDirection = (direction: string) => {
+    setForm((prev) => {
+      const newDirections = prev.directions.includes(direction)
+        ? prev.directions.filter((d) => d !== direction)
+        : [...prev.directions, direction];
+      return { ...prev, directions: newDirections };
+    });
   };
 
   const handleDeleteClick = (id: string, name: string, event: React.MouseEvent) => {
@@ -255,16 +266,9 @@ export default function BodyTrainersPage() {
 
                 <div className="body-trainers__card-specialty">
                   <span>{trainer.directions?.join(" · ") || "Направления не указаны"}</span>
-                  <span>
-                    График · <strong>{trainer.schedule || "не задан"}</strong>
-                  </span>
                 </div>
 
                 <div className="body-trainers__card-stats">
-                  <div>
-                    <CalendarCheck className="h-3.5 w-3.5" />
-                    <span>{trainer.schedule || "График работы не указан"}</span>
-                  </div>
                   <div>
                     <Activity className="h-3.5 w-3.5" />
                     <span>Нажмите, чтобы открыть профиль тренера</span>
@@ -320,22 +324,26 @@ export default function BodyTrainersPage() {
             </div>
             <div className="body-clients__add-field">
               <label>Направления</label>
-              <input
-                type="text"
-                placeholder="Например: Reformer, Stretching"
-                value={form.directions}
-                onChange={(event) => setForm((prev) => ({ ...prev, directions: event.target.value }))}
-              />
-              <p className="body-clients__add-hint">Разделяйте направления запятой.</p>
-            </div>
-            <div className="body-clients__add-field">
-              <label>График работы</label>
-              <input
-                type="text"
-                placeholder="Например: Пн-Пт · 8:00-18:00"
-                value={form.schedule}
-                onChange={(event) => setForm((prev) => ({ ...prev, schedule: event.target.value }))}
-              />
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.directions.includes("Body Mind")}
+                    onChange={() => toggleDirection("Body Mind")}
+                    className="w-4 h-4 rounded border-[var(--card-border)]"
+                  />
+                  <span>Body Mind</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.directions.includes("Pilates Reformer")}
+                    onChange={() => toggleDirection("Pilates Reformer")}
+                    className="w-4 h-4 rounded border-[var(--card-border)]"
+                  />
+                  <span>Pilates Reformer</span>
+                </label>
+              </div>
             </div>
           </div>
 

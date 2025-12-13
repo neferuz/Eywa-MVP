@@ -1,65 +1,105 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Card from "@/components/Card";
-import { Calendar, Users, Clock, Activity, Repeat, User } from "lucide-react";
+import { Calendar, Users, Clock, Activity, Repeat, User, Loader2 } from "lucide-react";
+import {
+  fetchBodyScheduleAnalytics,
+  type BodyScheduleAnalytics as BodyScheduleAnalyticsType,
+  type GroupAnalytics as GroupAnalyticsType,
+} from "@/lib/api";
 
-// Мок: тренеры и загрузка (процент занятости слотов за неделю)
-const coachesLoad = [
-  { name: "Елена", load: 82, classes: 18 },
-  { name: "Дмитрий", load: 74, classes: 15 },
-  { name: "Анна", load: 61, classes: 12 },
-  { name: "Ольга", load: 55, classes: 11 },
-];
+// Цвета для групп
+const GROUP_COLORS: Record<string, string> = {
+  body: "#79A7D3",
+  reform: "#C86B58",
+};
 
-// Мок: загрузка залов
-const roomsLoad = [
-  { room: "Зал 1", load: 76, color: "#6366F1" },
-  { room: "Зал 2", load: 64, color: "#10B981" },
-  { room: "Зал 3", load: 58, color: "#F59E0B" },
-];
+// Цвета для залов (если залов больше, цвета будут циклически повторяться)
+const ROOM_COLORS = ["#6366F1", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
 
-// Данные по группам (из Расписание Body & Mind)
-interface GroupAnalytics {
-  id: string;
-  name: string;
-  label: string;
+// Иконки для групп
+const GROUP_ICONS: Record<string, typeof Activity> = {
+  body: Activity,
+  reform: Repeat,
+};
+
+interface GroupAnalyticsWithUI extends GroupAnalyticsType {
   icon: typeof Activity;
   color: string;
-  totalClasses: number;
-  totalBookings: number;
-  load: number;
-  coaches: string[];
-  avgOccupancy: number;
 }
 
-const groupAnalytics: GroupAnalytics[] = [
-  {
-    id: "body",
-    name: "BODY",
-    label: "BODY",
-    icon: Activity,
-    color: "#79A7D3",
-    totalClasses: 12,
-    totalBookings: 98,
-    load: 78,
-    coaches: ["Севара", "Нигина", "Гавхар"],
-    avgOccupancy: 82,
-  },
-  {
-    id: "reform",
-    name: "REFORM",
-    label: "REFORM",
-    icon: Repeat,
-    color: "#C86B58",
-    totalClasses: 18,
-    totalBookings: 108,
-    load: 85,
-    coaches: ["Ангелина", "Евгения", "Камилла", "Антонина"],
-    avgOccupancy: 75,
-  },
-];
-
 export default function BodySchedulePage() {
+  const [analytics, setAnalytics] = useState<BodyScheduleAnalyticsType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadAnalytics = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await fetchBodyScheduleAnalytics();
+        setAnalytics(data);
+      } catch (err) {
+        console.error("Failed to load analytics:", err);
+        setError(err instanceof Error ? err.message : "Не удалось загрузить данные");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadAnalytics();
+  }, []);
+
+  // Маппинг названий групп
+  const GROUP_NAME_MAP: Record<string, { name: string; label: string }> = {
+    body: { name: "Body Mind", label: "Body Mind" },
+    reform: { name: "Pilates Reformer", label: "Pilates Reformer" },
+  };
+
+  // Преобразуем данные групп для UI
+  const groupAnalytics: GroupAnalyticsWithUI[] =
+    analytics?.groups.map((group) => {
+      const nameMapping = GROUP_NAME_MAP[group.id] || { name: group.name, label: group.label };
+      return {
+        ...group,
+        name: nameMapping.name,
+        label: nameMapping.label,
+        icon: GROUP_ICONS[group.id] || Activity,
+        color: GROUP_COLORS[group.id] || "#6366F1",
+      };
+    }) || [];
+
+  // Преобразуем данные залов для UI (добавляем цвета)
+  const roomsLoad =
+    analytics?.rooms.map((room, index) => ({
+      ...room,
+      color: ROOM_COLORS[index % ROOM_COLORS.length],
+    })) || [];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: "var(--foreground)" }} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-semibold">EYWA BODY · Расписание</h1>
+        <Card>
+          <div className="text-red-500">Ошибка: {error}</div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!analytics) {
+    return null;
+  }
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">EYWA BODY · Расписание</h1>
@@ -72,7 +112,7 @@ export default function BodySchedulePage() {
             </div>
             <div className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Всего слотов</div>
           </div>
-          <div className="text-2xl font-semibold">70</div>
+          <div className="text-2xl font-semibold">{analytics.overview.total_slots}</div>
         </Card>
         <Card>
           <div className="flex items-center gap-2 mb-2">
@@ -81,7 +121,7 @@ export default function BodySchedulePage() {
             </div>
             <div className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Забронировано</div>
           </div>
-          <div className="text-2xl font-semibold">45</div>
+          <div className="text-2xl font-semibold">{analytics.overview.booked_slots}</div>
         </Card>
         <Card>
           <div className="flex items-center gap-2 mb-2">
@@ -90,7 +130,7 @@ export default function BodySchedulePage() {
             </div>
             <div className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>Загрузка</div>
           </div>
-          <div className="text-2xl font-semibold">64%</div>
+          <div className="text-2xl font-semibold">{analytics.overview.load_percentage}%</div>
         </Card>
       </div>
 
@@ -118,11 +158,11 @@ export default function BodySchedulePage() {
               <div className="body-schedule-group-card__stats">
                 <div className="body-schedule-group-card__stat">
                   <div className="body-schedule-group-card__stat-label">Занятий</div>
-                  <div className="body-schedule-group-card__stat-value">{group.totalClasses}</div>
+                  <div className="body-schedule-group-card__stat-value">{group.total_classes}</div>
                 </div>
                 <div className="body-schedule-group-card__stat">
                   <div className="body-schedule-group-card__stat-label">Записей</div>
-                  <div className="body-schedule-group-card__stat-value">{group.totalBookings}</div>
+                  <div className="body-schedule-group-card__stat-value">{group.total_bookings}</div>
                 </div>
                 <div className="body-schedule-group-card__stat">
                   <div className="body-schedule-group-card__stat-label">Загрузка</div>
@@ -130,7 +170,7 @@ export default function BodySchedulePage() {
                 </div>
                 <div className="body-schedule-group-card__stat">
                   <div className="body-schedule-group-card__stat-label">Средняя заполненность</div>
-                  <div className="body-schedule-group-card__stat-value">{group.avgOccupancy}%</div>
+                  <div className="body-schedule-group-card__stat-value">{group.avg_occupancy}%</div>
                 </div>
               </div>
 
@@ -167,33 +207,41 @@ export default function BodySchedulePage() {
         <Card>
           <div className="mb-4 text-sm font-medium" style={{ color: 'var(--foreground)' }}>Тренеры · загрузка по неделе</div>
           <div className="space-y-3">
-            {coachesLoad.map((c) => (
-              <div key={c.name}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>{c.name}</div>
-                  <div className="text-sm" style={{ color: 'var(--foreground)' }}>{c.load}% · {c.classes} занятий</div>
+            {analytics.coaches.length > 0 ? (
+              analytics.coaches.map((c) => (
+                <div key={c.name}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>{c.name}</div>
+                    <div className="text-sm" style={{ color: 'var(--foreground)' }}>{c.load}% · {c.classes} занятий</div>
+                  </div>
+                  <div className="h-2.5 w-full rounded-full" style={{ background: 'var(--muted)', border: '1px solid var(--card-border)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${c.load}%`, background: '#6366F1' }} />
+                  </div>
                 </div>
-                <div className="h-2.5 w-full rounded-full" style={{ background: 'var(--muted)', border: '1px solid var(--card-border)' }}>
-                  <div className="h-full rounded-full" style={{ width: `${c.load}%`, background: '#6366F1' }} />
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Нет данных о тренерах</div>
+            )}
           </div>
         </Card>
         <Card>
           <div className="mb-4 text-sm font-medium" style={{ color: 'var(--foreground)' }}>Загрузка залов</div>
           <div className="space-y-3">
-            {roomsLoad.map((r) => (
-              <div key={r.room}>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>{r.room}</div>
-                  <div className="text-sm" style={{ color: 'var(--foreground)' }}>{r.load}%</div>
+            {roomsLoad.length > 0 ? (
+              roomsLoad.map((r) => (
+                <div key={r.room}>
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>{r.room}</div>
+                    <div className="text-sm" style={{ color: 'var(--foreground)' }}>{r.load}%</div>
+                  </div>
+                  <div className="h-2.5 w-full rounded-full" style={{ background: 'var(--muted)', border: '1px solid var(--card-border)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${r.load}%`, background: r.color }} />
+                  </div>
                 </div>
-                <div className="h-2.5 w-full rounded-full" style={{ background: 'var(--muted)', border: '1px solid var(--card-border)' }}>
-                  <div className="h-full rounded-full" style={{ width: `${r.load}%`, background: r.color }} />
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <div className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Нет данных о залах</div>
+            )}
           </div>
         </Card>
       </div>

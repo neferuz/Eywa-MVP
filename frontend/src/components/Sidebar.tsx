@@ -16,7 +16,6 @@ import {
   Sun,
   Moon,
   Building2,
-  Calendar,
   CalendarClock,
   CreditCard,
   Globe,
@@ -33,6 +32,7 @@ import {
   KanbanSquare,
   Heart,
   History,
+  X,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 
@@ -86,7 +86,12 @@ const marketingGroup: NavGroup = {
 
 const staffLink = { href: "/staff/list", label: "Сотрудники", icon: Users };
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
   // Удалено: проверка логина теперь в LayoutWrapper
   const isActive = (href: string) => pathname === href;
@@ -98,6 +103,13 @@ export default function Sidebar() {
   const [hoverExpand, setHoverExpand] = useState<boolean>(false);
   const hoverTimer = useRef<number | null>(null);
   const { theme, toggle } = useTheme();
+
+  // Close sidebar on mobile when route changes
+  useEffect(() => {
+    if (onClose && pathname) {
+      onClose();
+    }
+  }, [pathname, onClose]);
 
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? localStorage.getItem('sidebar-collapsed') : null;
@@ -113,20 +125,34 @@ export default function Sidebar() {
   };
 
   return (
-    <aside
-      className={`h-screen ${collapsed && !hoverExpand ? 'w-16' : 'w-64'} shrink-0 sticky top-0 transition-[width] duration-300 ease-in-out flex flex-col overflow-hidden min-h-0`}
-      style={{ background: "var(--background)", color: "var(--foreground)", borderRight: "1px solid var(--card-border)" }}
-      onMouseEnter={() => {
-        if (!collapsed) return;
-        if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-        setHoverExpand(true);
-      }}
-      onMouseLeave={() => {
-        if (!collapsed) return;
-        if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
-        hoverTimer.current = window.setTimeout(() => setHoverExpand(false), 180);
-      }}
-    >
+    <>
+      {/* Mobile overlay */}
+      {onClose && (
+        <div
+          className={`lg:hidden fixed inset-0 bg-black/50 z-40 transition-opacity duration-300 ${
+            isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+          onClick={onClose}
+        />
+      )}
+      
+      <aside
+        className={`h-screen ${collapsed && !hoverExpand ? 'w-16' : 'w-64'} shrink-0 sticky top-0 transition-all duration-300 ease-in-out flex flex-col overflow-hidden min-h-0
+          ${onClose ? 'lg:relative fixed lg:translate-x-0 lg:static pointer-events-auto' : ''}
+          ${onClose ? (isOpen ? 'translate-x-0' : '-translate-x-full') : ''}
+        `}
+        style={{ background: "var(--background)", color: "var(--foreground)", borderRight: "1px solid var(--card-border)" }}
+        onMouseEnter={() => {
+          if (!collapsed) return;
+          if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+          setHoverExpand(true);
+        }}
+        onMouseLeave={() => {
+          if (!collapsed) return;
+          if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
+          hoverTimer.current = window.setTimeout(() => setHoverExpand(false), 180);
+        }}
+      >
       <div className="px-3 py-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg overflow-hidden flex items-center justify-center" style={{ border: '1px solid var(--card-border)', background: 'var(--panel)' }}>
@@ -142,14 +168,27 @@ export default function Sidebar() {
             <span className="text-xs text-zinc-500">CRM Platform</span>
           </div>
         </div>
-        <button
-          onClick={toggleCollapsed}
-          className="h-8 w-8 rounded-lg flex items-center justify-center transition-all hover:scale-105"
-          title={collapsed ? 'Развернуть меню' : 'Свернуть меню'}
-          style={{ border: '1px solid var(--card-border)', background: 'var(--muted)' }}
-        >
-          {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Close button for mobile */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="lg:hidden h-8 w-8 rounded-lg flex items-center justify-center transition-all hover:scale-105 hover:bg-black/[.04] dark:hover:bg-white/[.06]"
+              title="Закрыть меню"
+              style={{ border: '1px solid var(--card-border)', background: 'var(--muted)' }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            onClick={toggleCollapsed}
+            className="hidden lg:flex h-8 w-8 rounded-lg items-center justify-center transition-all hover:scale-105"
+            title={collapsed ? 'Развернуть меню' : 'Свернуть меню'}
+            style={{ border: '1px solid var(--card-border)', background: 'var(--muted)' }}
+          >
+            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
       <div style={{ borderTop: '1px solid var(--card-border)' }} />
       <nav className="px-2 pb-2 flex flex-col flex-1 min-h-0 pt-2">
@@ -171,13 +210,13 @@ export default function Sidebar() {
           <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Общие показатели</span>
         </Link>
 
-        {/* Расписание (загрузка) V2 */}
+        {/* Расписание */}
         <Link
           href="/schedule/load"
           className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
             isActive("/schedule/load") ? "font-medium" : ""
           }`}
-          title="Расписание (загрузка) v2"
+          title="Расписание"
           style={
             isActive('/schedule/load')
               ? { background: 'var(--panel)', border: '1px solid var(--card-border)', boxShadow: 'inset 3px 0 0 0 #10B981' }
@@ -185,24 +224,7 @@ export default function Sidebar() {
           }
         >
           <CalendarClock className="h-4 w-4" />
-          <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Расписание (загрузка) v2</span>
-        </Link>
-
-        {/* Записи на сегодня */}
-        <Link
-          href="/dashboard/today"
-          className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-            isActive("/dashboard/today") ? "font-medium" : ""
-          }`}
-          title="Записи на сегодня"
-          style={
-            isActive('/dashboard/today')
-              ? { background: 'var(--panel)', border: '1px solid var(--card-border)', boxShadow: 'inset 3px 0 0 0 #10B981' }
-              : undefined
-          }
-        >
-          <Calendar className="h-4 w-4" />
-          <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Записи на сегодня</span>
+          <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Расписание</span>
         </Link>
 
         {/* Оплата */}
@@ -504,6 +526,7 @@ export default function Sidebar() {
         </div>
       </nav>
     </aside>
+    </>
   );
 }
 

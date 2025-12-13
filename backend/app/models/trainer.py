@@ -21,3 +21,10 @@ class Trainer(Base, TimestampMixin):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+
+
+
+
+
+
+

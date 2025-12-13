@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.data.trainers import MOCK_TRAINERS, get_mock_trainer
 from app.models.trainer import Trainer as TrainerModel
 from app.schemas.trainer import Trainer as TrainerSchema
-from app.schemas.trainer import TrainerCreate
+from app.schemas.trainer import TrainerCreate, TrainerUpdate
 
 
 class TrainerRepository:
@@ -46,6 +46,27 @@ class TrainerRepository:
         await self.session.refresh(model)
         return self._to_schema(model)
 
+    async def update(self, public_id: str, data: TrainerUpdate) -> TrainerSchema | None:
+        stmt = select(TrainerModel).where(TrainerModel.public_id == public_id)
+        model = await self.session.scalar(stmt)
+        if not model:
+            return None
+        
+        if data.full_name is not None:
+            model.full_name = data.full_name
+        if data.phone is not None:
+            model.phone = data.phone
+        if data.directions is not None:
+            model.directions = data.directions
+        if data.schedule is not None:
+            model.schedule = data.schedule
+        if data.comment is not None:
+            model.comment = data.comment
+        
+        await self.session.commit()
+        await self.session.refresh(model)
+        return self._to_schema(model)
+
     async def delete(self, public_id: str) -> bool:
         stmt = select(TrainerModel).where(TrainerModel.public_id == public_id)
         model = await self.session.scalar(stmt)
@@ -65,5 +86,12 @@ class TrainerRepository:
             schedule=model.schedule,
             comment=model.comment,
         )
+
+
+
+
+
+
+
 
 

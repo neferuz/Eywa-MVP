@@ -8,6 +8,7 @@ from .user import User
 from .category import Category
 from .payment_service import PaymentService, PaymentServiceCategory
 from .payment import Payment
+from .schedule_booking import ScheduleBooking
 from .base import Base
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "PaymentService",
     "PaymentServiceCategory",
     "Payment",
+    "ScheduleBooking",
     "Base",
 ]
 

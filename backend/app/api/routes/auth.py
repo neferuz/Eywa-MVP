@@ -55,17 +55,28 @@ async def login(
     session: AsyncSession = Depends(get_session),
 ) -> Token:
     """Вход в систему."""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     repo = UserRepository(session)
     user = await repo.get_by_email(login_data.email)
     
+    logger.info(f"Login attempt for email: {login_data.email}, user found: {user is not None}")
+    
     if not user:
+        logger.warning(f"User not found: {login_data.email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    if not verify_password(login_data.password, user.password_hash):
+    logger.info(f"User found: {user.email}, checking password...")
+    password_valid = verify_password(login_data.password, user.password_hash)
+    logger.info(f"Password check result: {password_valid}")
+    
+    if not password_valid:
+        logger.warning(f"Invalid password for user: {login_data.email}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -93,4 +104,6 @@ async def get_current_user_info(
 ) -> UserResponse:
     """Получить информацию о текущем пользователе."""
     return current_user
+
+
 

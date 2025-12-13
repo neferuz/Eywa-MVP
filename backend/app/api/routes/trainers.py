@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
 from app.repositories.trainers import TrainerRepository
-from app.schemas.trainer import Trainer, TrainerCreate
+from app.schemas.trainer import Trainer, TrainerCreate, TrainerUpdate
 
 router = APIRouter(prefix="/api/trainers", tags=["trainers"])
 
@@ -34,11 +34,31 @@ async def get_trainer(
     return trainer
 
 
+@router.patch("/{trainer_id}", response_model=Trainer)
+async def update_trainer(
+    trainer_id: str,
+    payload: TrainerUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> Trainer:
+    repo = TrainerRepository(session)
+    trainer = await repo.update(trainer_id, payload)
+    if not trainer:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trainer not found")
+    return trainer
+
+
 @router.delete("/{trainer_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_trainer(trainer_id: str, session: AsyncSession = Depends(get_session)) -> None:
     repo = TrainerRepository(session)
     deleted = await repo.delete(trainer_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Trainer not found")
+
+
+
+
+
+
+
 
 

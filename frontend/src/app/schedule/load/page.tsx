@@ -1,12 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Clock, Search, Users, Activity, X, Phone, User, NotebookPen, Plus } from "lucide-react";
-import FullCalendar, { type EventContentArg } from "@fullcalendar/react";
+import { useRouter } from "next/navigation";
+import { Calendar as CalendarIcon, Calendar, ChevronLeft, ChevronRight, Clock, Search, Users, Activity, X, Phone, User, NotebookPen, Plus, Trash2, CreditCard, CheckCircle, Pencil } from "lucide-react";
+import FullCalendar from "@fullcalendar/react";
+import type { EventContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import Card from "@/components/Card";
+import Modal from "@/components/Modal";
+import { toast } from "@pheralb/toast";
 
 const TIME_SLOTS = [
   "07:00",
@@ -26,6 +30,12 @@ const TIME_SLOTS = [
   "21:00",
   "22:00",
 ] as const;
+
+const createEmptySlots = (): OverviewSlots =>
+  TIME_SLOTS.reduce((acc, time) => {
+    acc[time] = null;
+    return acc;
+  }, {} as OverviewSlots);
 
 type EventStatus = "reserved" | "paid" | "free";
 
@@ -124,134 +134,44 @@ const OVERVIEW_GROUPS = [
   },
 ] as const;
 
-const DEFAULT_OVERVIEW_EVENTS: Record<string, CalendarEvent> = {
-  [makeOverviewSlotKey("cowork", "capsule-1", "09:00")]: {
-    id: "cowork-capsule-1-0900",
-    title: "Алексей М.",
-    time: "09:00",
-    endTime: "12:00",
-    status: "paid",
-    color: STATUS_COLORS.paid,
-    clients: ["Алексей М."],
-    peopleCount: 4,
-    capacity: 4,
-  },
-  [makeOverviewSlotKey("cowork", "capsule-2", "09:00")]: {
-    id: "cowork-capsule-2-0900",
-    title: "Ольга С.",
-    time: "09:00",
-    status: "paid",
-    color: STATUS_COLORS.paid,
-    clients: ["Ольга С."],
-    peopleCount: 3,
-    capacity: 6,
-  },
-  [makeOverviewSlotKey("cowork", "capsule-2", "10:00")]: {
-    id: "cowork-capsule-2-1000",
-    title: "Иван П.",
-    time: "10:00",
-    endTime: "14:00",
-    status: "paid",
-    color: STATUS_COLORS.paid,
-    clients: ["Иван П."],
-    peopleCount: 5,
-    capacity: 6,
-  },
-  [makeOverviewSlotKey("cowork", "capsule-3", "11:00")]: {
-    id: "cowork-capsule-3-1100",
-    title: "Мария R.",
-    time: "11:00",
-    status: "paid",
-    color: STATUS_COLORS.paid,
-    clients: ["Мария R."],
-    peopleCount: 1,
-    capacity: 1,
-  },
-  [makeOverviewSlotKey("cowork", "capsule-4", "09:00")]: {
-    id: "cowork-capsule-4-0900",
-    title: "Екатерина В.",
-    time: "09:00",
-    status: "paid",
-    color: STATUS_COLORS.paid,
-    clients: ["Екатерина В."],
-    peopleCount: 1,
-    capacity: 1,
-  },
-};
-
+// Все данные загружаются из API, мок данные удалены
 const INITIAL_OVERVIEW_SLOTS: Record<string, CalendarEvent | null> = (() => {
   const slots: Record<string, CalendarEvent | null> = {};
   OVERVIEW_GROUPS.forEach((group) => {
     group.columns.forEach((column) => {
       TIME_SLOTS.forEach((time) => {
         const slotKey = makeOverviewSlotKey(group.key, column.key, time);
-        slots[slotKey] = DEFAULT_OVERVIEW_EVENTS[slotKey] ?? null;
+        slots[slotKey] = null;
       });
     });
   });
   return slots;
 })();
 
-const INITIAL_WEEK_SCHEDULE: Record<string, CalendarEvent | null> = {
-  "mon-09:00": {
-    id: "mon-capsule-1-0900",
-    title: "Алексей М.",
-    time: "09:00",
-    endTime: "12:00",
-    status: "paid",
-    color: STATUS_COLORS.paid,
-    clients: ["Алексей М."],
-    peopleCount: 4,
-    capacity: 4,
-  },
-  "mon-09:00-olga": {
-    id: "mon-capsule-2-0900",
-    title: "Ольга С.",
-    time: "09:00",
-    endTime: "10:00",
-    status: "paid",
-    color: STATUS_COLORS.paid,
-    clients: ["Ольга С."],
-    peopleCount: 3,
-    capacity: 6,
-  },
-  "mon-10:00": {
-    id: "mon-capsule-2-1000",
-    title: "Иван П.",
-    time: "10:00",
-    endTime: "14:00",
-    status: "paid",
-    color: STATUS_COLORS.paid,
-    clients: ["Иван П."],
-    peopleCount: 5,
-    capacity: 6,
-  },
-  "mon-11:00": {
-    id: "mon-capsule-3-1100",
-    title: "Мария R.",
-    time: "11:00",
-    endTime: "12:00",
-    status: "paid",
-    color: STATUS_COLORS.paid,
-    clients: ["Мария R."],
-    peopleCount: 1,
-    capacity: 1,
-  },
-  "mon-09:00-ekaterina": {
-    id: "mon-capsule-4-0900",
-    title: "Екатерина В.",
-    time: "09:00",
-    endTime: "10:00",
-    status: "paid",
-    color: STATUS_COLORS.paid,
-    clients: ["Екатерина В."],
-    peopleCount: 1,
-    capacity: 1,
-  },
-};
+// Все данные загружаются из API, мок данные удалены
+const INITIAL_WEEK_SCHEDULE: Record<string, CalendarEvent | null> = {};
 import { CLIENTS as MOCK_CLIENTS, type Client as MockClient } from "@/data/clients";
+import {
+  fetchScheduleBookings,
+  createScheduleBooking,
+  updateScheduleBooking,
+  deleteScheduleBooking,
+  fetchClientsFromApi,
+  fetchTrainers,
+  fetchScheduleBookingById,
+  fetchCoworkingPlaces,
+  fetchKidsServices,
+  createPayment,
+  type ScheduleBooking as ScheduleBookingType,
+  type ScheduleBookingCreate,
+  type ScheduleBookingUpdate,
+  type Trainer,
+  type CoworkingPlace,
+  type KidsService,
+} from "@/lib/api";
 
 type StatusFilter = EventStatus | "all";
+type CategoryFilter = "all" | "bodymind" | "pilates";
 type ViewMode = "overview" | "schedule";
 type SelectedSlotInfo = {
   groupKey: string;
@@ -268,32 +188,76 @@ const statusFilters: { value: StatusFilter; label: string; color: string }[] = [
   { value: "free", label: "Свободно", color: STATUS_COLORS.free },
 ];
 
+const categoryFilters: { value: CategoryFilter; label: string; color: string }[] = [
+  { value: "all", label: "Все", color: "var(--muted-foreground)" },
+  { value: "bodymind", label: "Body Mind", color: "#6366F1" },
+  { value: "pilates", label: "Pilates Reformer", color: "#10B981" },
+];
+
 export default function ScheduleLoadPage() {
+  const router = useRouter();
+  const scheduleContainerRef = useRef<HTMLDivElement>(null);
+  const todayHeaderRef = useRef<HTMLDivElement>(null);
   const [weekSchedule] = useState<Record<string, CalendarEvent | null>>(() => ({
     ...INITIAL_WEEK_SCHEDULE,
   }));
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("schedule");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showOverviewDatePicker, setShowOverviewDatePicker] = useState(false);
   const datePickerRef = useRef<HTMLDivElement | null>(null);
+  const overviewDatePickerRef = useRef<HTMLDivElement | null>(null);
   const calendarRef = useRef<FullCalendar | null>(null);
+  // Все данные теперь загружаются из API, localStorage не используется
   const [overviewSlotsState, setOverviewSlotsState] = useState<Record<string, CalendarEvent | null>>(
-    () => ({
-      ...INITIAL_OVERVIEW_SLOTS,
-    }),
+    INITIAL_OVERVIEW_SLOTS
   );
+  const [isLoadingBookings, setIsLoadingBookings] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [draftEvent, setDraftEvent] = useState<CalendarEvent | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlotInfo | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<"event" | "create">("event");
+  const [drawerMode, setDrawerMode] = useState<"event" | "create" | "pilates" | "bodymind" | "create-schedule">("event");
+  const [selectedPilatesTrainer, setSelectedPilatesTrainer] = useState<ScheduleTrainer | null>(null);
+  const [selectedBodymindGroup, setSelectedBodymindGroup] = useState<ScheduleGroup | null>(null);
+  const [showTrainerSelect, setShowTrainerSelect] = useState(false);
+  const [showBodymindTrainerSelect, setShowBodymindTrainerSelect] = useState(false);
+  const [trainerSearchQuery, setTrainerSearchQuery] = useState("");
+  const [bodymindTrainerSearchQuery, setBodymindTrainerSearchQuery] = useState("");
+  const [isEditingBodymind, setIsEditingBodymind] = useState(false);
+  const [isEditingPeopleCount, setIsEditingPeopleCount] = useState(false);
+  const [editingBodymindName, setEditingBodymindName] = useState("");
+  const [editingBodymindTrainer, setEditingBodymindTrainer] = useState("");
+  const [editingBodymindCapacity, setEditingBodymindCapacity] = useState("");
+  const [editingBodymindClients, setEditingBodymindClients] = useState<MockClient[]>([]); // Клиенты при редактировании
+  const [showEditingBodymindClientSelect, setShowEditingBodymindClientSelect] = useState(false);
+  const [editingBodymindClientSearchQuery, setEditingBodymindClientSearchQuery] = useState("");
+  const [editingBodymindClientSearchResults, setEditingBodymindClientSearchResults] = useState<MockClient[]>([]);
+  const [selectedScheduleCategory, setSelectedScheduleCategory] = useState<"bodymind" | "pilates" | null>(null);
+  const [selectedScheduleDayKey, setSelectedScheduleDayKey] = useState<string>("");
+  const [selectedScheduleTime, setSelectedScheduleTime] = useState<string>("");
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState<string>(""); // Конкретная дата выбранного дня
+  const [newBodymindName, setNewBodymindName] = useState("");
+  const [newBodymindTrainer, setNewBodymindTrainer] = useState("");
+  const [newBodymindCapacity, setNewBodymindCapacity] = useState("10"); // Только максимальная вместимость (число)
+  const [newBodymindClients, setNewBodymindClients] = useState<MockClient[]>([]); // Список выбранных клиентов
+  const [showNewBodymindClientSelect, setShowNewBodymindClientSelect] = useState(false);
+  const [newBodymindClientSearchQuery, setNewBodymindClientSearchQuery] = useState("");
+  const [newBodymindClientSearchResults, setNewBodymindClientSearchResults] = useState<MockClient[]>([]);
+  const [showNewBodymindTrainerSelect, setShowNewBodymindTrainerSelect] = useState(false);
+  const [newBodymindTrainerSearchQuery, setNewBodymindTrainerSearchQuery] = useState("");
+  const [newPilatesTrainer, setNewPilatesTrainer] = useState("");
+  const [showNewPilatesTrainerSelect, setShowNewPilatesTrainerSelect] = useState(false);
+  const [newPilatesTrainerSearchQuery, setNewPilatesTrainerSearchQuery] = useState("");
   const [newBookingStatus, setNewBookingStatus] = useState<EventStatus>("reserved");
   const [newBookingClient, setNewBookingClient] = useState("");
   const [newBookingPhone, setNewBookingPhone] = useState("");
   const [newBookingNote, setNewBookingNote] = useState("");
   const [clientSearchResults, setClientSearchResults] = useState<MockClient[]>([]);
+  const [selectedClient, setSelectedClient] = useState<MockClient | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -303,6 +267,72 @@ export default function ScheduleLoadPage() {
   const [paymentTotal, setPaymentTotal] = useState("");
   const [paymentCash, setPaymentCash] = useState("");
   const [paymentCard, setPaymentCard] = useState("");
+  const [isCashSelected, setIsCashSelected] = useState(false);
+  const [isCardSelected, setIsCardSelected] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteModalJustOpened, setDeleteModalJustOpened] = useState(false);
+  // Услуги для коворкинга и Kids
+  const [coworkingPlaces, setCoworkingPlaces] = useState<CoworkingPlace[]>([]);
+  const [kidsServices, setKidsServices] = useState<KidsService[]>([]);
+  const [selectedCoworkingPlace, setSelectedCoworkingPlace] = useState<CoworkingPlace | null>(null);
+  const [selectedKidsService, setSelectedKidsService] = useState<KidsService | null>(null);
+  const [selectedServicePrice, setSelectedServicePrice] = useState<number | null>(null);
+  // Отдельное состояние для данных удаления Pilates (не зависит от drawer)
+  const [pilatesDeleteData, setPilatesDeleteData] = useState<{
+    bookingId: string;
+    trainer: string;
+    time: string;
+    dayKey: string;
+    date: string;
+  } | null>(null);
+  
+  // Состояние для расписания (Body Mind и Pilates Reformer)
+  type ScheduleGroup = { name: string; trainer: string; capacity: string; time: string; dayKey: string; date: string; category: "bodymind"; bookingId?: string };
+  type ScheduleTrainer = { trainer: string; time: string; dayKey: string; date: string; category: "pilates"; bookingId?: string };
+  
+  // Функция для получения даты по dayKey и weekStart
+  const getDateStringForDayKey = (dayKey: string, weekStartDate: Date): string => {
+    const dayIndex = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].indexOf(dayKey);
+    if (dayIndex === -1) return "";
+    const date = new Date(weekStartDate);
+    date.setDate(date.getDate() + dayIndex);
+    // Используем локальную дату без конвертации в UTC, чтобы избежать проблем с часовыми поясами
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+
+  // Все данные загружаются из API, мок данные удалены
+  const getInitialScheduleGroups = (weekStartDate: Date): ScheduleGroup[] => {
+    return [];
+  };
+
+  const getInitialScheduleTrainers = (weekStartDate: Date): ScheduleTrainer[] => {
+    return [];
+  };
+
+  const [scheduleGroups, setScheduleGroups] = useState<ScheduleGroup[]>(() => getInitialScheduleGroups(getStartOfWeek(new Date())));
+  const [scheduleTrainers, setScheduleTrainers] = useState<ScheduleTrainer[]>(() => getInitialScheduleTrainers(getStartOfWeek(new Date())));
+
+  // Список всех доступных тренеров Pilates Reformer (загружается из API)
+  const [availableTrainers, setAvailableTrainers] = useState<Array<{ name: string; phone: string; id?: string }>>([]);
+
+  // Загрузка тренеров из API
+  useEffect(() => {
+    const loadTrainers = async () => {
+      try {
+        const trainers = await fetchTrainers();
+        const trainersList = trainers.map((trainer: Trainer) => ({
+          name: trainer.full_name,
+          phone: trainer.phone,
+          id: trainer.id,
+        }));
+        setAvailableTrainers(trainersList);
+      } catch (error) {
+        console.error("Failed to load trainers:", error);
+        // Оставляем мок данные при ошибке
+      }
+    };
+    loadTrainers();
+  }, []);
   const overviewStatusCounts = useMemo(() => {
     const counts: Record<EventStatus, number> = { reserved: 0, paid: 0, free: 0 };
     Object.values(overviewSlotsState).forEach((event) => {
@@ -318,6 +348,7 @@ export default function ScheduleLoadPage() {
     setNewBookingPhone("");
     setNewBookingNote("");
     setClientSearchResults([]);
+    setSelectedClient(null);
   };
 
   // При монтировании читаем сохранённый режим (Обзор / Расписание)
@@ -343,20 +374,239 @@ export default function ScheduleLoadPage() {
     }
   }, [viewMode]);
 
+  // Вспомогательная функция для получения ID из booking (поддержка public_id из-за алиаса в Pydantic)
+  const getBookingId = (booking: ScheduleBookingType): string => {
+    const id = booking.id || (booking as any).public_id;
+    if (!id) {
+      console.error("Booking ID is missing:", booking);
+      throw new Error("Booking ID is required but missing");
+    }
+    return id;
+  };
+
+  // Функция для загрузки записей из API (вынесена для переиспользования)
+  const loadBookingsFromApi = useCallback(async (forOverview: boolean = false) => {
+    setIsLoadingBookings(true);
+      try {
+        let startDate: string;
+        let endDate: string;
+        
+        if (forOverview) {
+          // Для обзора загружаем только сегодняшнюю дату
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+          endDate = startDate;
+        } else {
+          // Для расписания загружаем всю неделю
+        const weekStart = getStartOfWeek(currentDate);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+          startDate = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`;
+          endDate = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, '0')}-${String(weekEnd.getDate()).padStart(2, '0')}`;
+        }
+        
+        const bookings = await fetchScheduleBookings({
+          start_date: startDate,
+          end_date: endDate,
+        });
+        
+        // Преобразуем записи из API в CalendarEvent
+        const newSlots: Record<string, CalendarEvent | null> = {};
+        
+        // Инициализируем все слоты как null
+        OVERVIEW_GROUPS.forEach((group) => {
+          group.columns.forEach((column) => {
+            TIME_SLOTS.forEach((time) => {
+              const slotKey = makeOverviewSlotKey(group.key, column.key, time);
+              newSlots[slotKey] = null;
+            });
+          });
+        });
+        
+        bookings.forEach((booking) => {
+          // Определяем категорию и колонку на основе данных записи
+          let groupKey = "cowork";
+          let columnKey = "capsule-1";
+          
+          if (booking.category === "Body Mind") {
+            groupKey = "bodymind";
+            columnKey = "body";
+          } else if (booking.category === "Pilates Reformer") {
+            groupKey = "bodymind";
+            columnKey = "reform";
+          } else if (booking.category === "Коворкинг") {
+            groupKey = "cowork";
+            // Определяем колонку на основе capsule_name или capsule_id
+            if (booking.capsule_name) {
+              const capsuleMap: Record<string, string> = {
+                "Капсула 1": "capsule-1",
+                "Капсула 2": "capsule-2",
+                "Капсула 3": "capsule-3",
+                "Капсула 4": "capsule-4",
+                "Капсула 5": "capsule-5",
+                "ИвентЗона": "ivent-zone",
+              };
+              columnKey = capsuleMap[booking.capsule_name] || booking.capsule_id || "capsule-1";
+            } else if (booking.capsule_id) {
+              columnKey = booking.capsule_id;
+            }
+          } else if (booking.category === "Eywa Kids") {
+            groupKey = "kids";
+            columnKey = "kids";
+          }
+          
+          const slotKey = makeOverviewSlotKey(
+            groupKey,
+            columnKey,
+            booking.booking_time as (typeof TIME_SLOTS)[number]
+          );
+          
+          const statusMap: Record<string, EventStatus> = {
+            "Бронь": "reserved",
+            "Оплачено": "paid",
+            "Свободно": "free",
+          };
+          
+          const event: CalendarEvent = {
+            id: getBookingId(booking),
+            title: booking.clients.length > 0 
+              ? booking.clients.map(c => c.client_name).join(", ")
+              : booking.service_name || "Свободно",
+            time: booking.booking_time as (typeof TIME_SLOTS)[number],
+            status: statusMap[booking.status] || "free",
+            color: STATUS_COLORS[statusMap[booking.status] || "free"],
+            clients: booking.clients.map(c => c.client_name),
+            peopleCount: booking.current_count,
+            capacity: booking.max_capacity,
+            phone: booking.clients[0]?.client_phone || undefined,
+            note: booking.notes || undefined,
+            coach: booking.trainer_name || undefined,
+          };
+          
+          newSlots[slotKey] = event;
+        });
+        
+        // Обновляем состояние: для обзора полностью заменяем данные, для расписания - частично
+        if (forOverview) {
+          // Для обзора полностью заменяем данные из API
+        setOverviewSlotsState(newSlots);
+        } else {
+          // Для расписания обновляем только те слоты, для которых API вернул данные
+          setOverviewSlotsState((prev) => {
+            const updated = { ...prev };
+            Object.keys(newSlots).forEach((key) => {
+              if (newSlots[key] !== null) {
+                updated[key] = newSlots[key];
+              }
+            });
+            return updated;
+          });
+        }
+        
+        // Обновляем scheduleTrainers и scheduleGroups с данными из API
+        const pilatesBookings = bookings.filter(b => b.category === "Pilates Reformer");
+        const bodymindBookings = bookings.filter(b => b.category === "Body Mind");
+        
+        // Обновляем scheduleTrainers для Pilates Reformer
+        const updatedTrainers: ScheduleTrainer[] = pilatesBookings.map(booking => {
+          // Нормализуем дату (убираем время, если есть)
+          const normalizedDate = booking.booking_date.split('T')[0];
+          // Парсим дату в формате YYYY-MM-DD, используя UTC, чтобы избежать проблем с часовыми поясами
+          const [year, month, day] = normalizedDate.split('-').map(Number);
+          const bookingDate = new Date(Date.UTC(year, month - 1, day)); // month - 1, так как месяцы в JS начинаются с 0
+          const dayIndex = bookingDate.getUTCDay(); // Используем getUTCDay() для UTC
+          // Преобразуем getUTCDay() (0=воскресенье) в наш формат (monday=0)
+          const dayNames = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+          const dayKey = dayNames[(dayIndex + 6) % 7]; // Сдвигаем так, чтобы понедельник был первым
+          
+          const trainerData = {
+            trainer: booking.trainer_name || "",
+            time: booking.booking_time,
+            dayKey: dayKey,
+            date: normalizedDate, // Используем нормализованную дату
+            category: "pilates" as const,
+            bookingId: getBookingId(booking),
+          };
+          
+          return trainerData;
+        });
+        setScheduleTrainers(updatedTrainers);
+        
+        // Обновляем scheduleGroups для Body Mind
+        const updatedGroups: ScheduleGroup[] = bodymindBookings.map(booking => {
+          // Парсим дату в формате YYYY-MM-DD, используя UTC, чтобы избежать проблем с часовыми поясами
+          const normalizedDate = booking.booking_date.split('T')[0];
+          const [year, month, day] = normalizedDate.split('-').map(Number);
+          const bookingDate = new Date(Date.UTC(year, month - 1, day)); // month - 1, так как месяцы в JS начинаются с 0
+          const dayIndex = bookingDate.getUTCDay(); // Используем getUTCDay() для UTC
+          const dayNames = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+          const dayKey = dayNames[(dayIndex + 6) % 7];
+          
+          const serviceName = booking.service_name || "";
+          if (!serviceName) {
+            console.warn("Body Mind booking without service_name:", booking);
+          }
+          
+          return {
+            name: serviceName,
+            trainer: booking.trainer_name || "",
+            capacity: `${booking.current_count}/${booking.max_capacity}`,
+            time: booking.booking_time,
+            dayKey: dayKey,
+            date: booking.booking_date,
+            category: "bodymind",
+            bookingId: getBookingId(booking),
+          };
+        });
+        setScheduleGroups(updatedGroups);
+      } catch (error) {
+        console.error("Failed to load bookings:", error);
+        toast.error({ text: "Не удалось загрузить записи из базы данных" });
+    } finally {
+      setIsLoadingBookings(false);
+      }
+  }, [currentDate]);
+
+  // Загрузка записей из API при изменении даты или режима просмотра
+  useEffect(() => {
+    loadBookingsFromApi(viewMode === "overview");
+  }, [loadBookingsFromApi, viewMode]);
+
   const handleCloseDrawer = () => {
     setIsDrawerOpen(false);
     setSelectedEvent(null);
     setDraftEvent(null);
+    setIsEditingPeopleCount(false);
     setSelectedSlot(null);
+    setSelectedPilatesTrainer(null);
+    setSelectedBodymindGroup(null);
+    setSelectedScheduleCategory(null);
+    setSelectedScheduleDayKey("");
+    setSelectedScheduleTime("");
+    setSelectedScheduleDate("");
     setExtendError(null);
     setIsPaymentMode(false);
     setPaymentTotal("");
     setPaymentCash("");
     setPaymentCard("");
+    setIsCashSelected(false);
+    setIsCardSelected(false);
+    setShowTrainerSelect(false);
+    setTrainerSearchQuery("");
+    setEditingBodymindName("");
+    setEditingBodymindTrainer("");
+    setEditingBodymindCapacity("");
+    setNewBodymindName("");
+    setNewBodymindTrainer("");
+    setNewBodymindCapacity("");
+    setNewPilatesTrainer("");
+    setShowNewPilatesTrainerSelect(false);
+    setNewPilatesTrainerSearchQuery("");
     resetCreateForm();
   };
 
-  const handleOpenCreateDrawer = (info: SelectedSlotInfo) => {
+  const handleOpenCreateDrawer = async (info: SelectedSlotInfo) => {
     setSelectedEvent(null);
     setDraftEvent(null);
     setSelectedSlot(info);
@@ -365,50 +615,189 @@ export default function ScheduleLoadPage() {
     setPaymentTotal("");
     setPaymentCash("");
     setPaymentCard("");
+    setIsCashSelected(false);
+    setIsCardSelected(false);
     resetCreateForm();
+    setSelectedCoworkingPlace(null);
+    setSelectedKidsService(null);
+    setSelectedServicePrice(null);
+    
+    // Загружаем услуги в зависимости от категории
+    try {
+      if (info.groupKey === "cowork") {
+        const places = await fetchCoworkingPlaces();
+        setCoworkingPlaces(places);
+        // Находим место по columnKey
+        const place = places.find(p => {
+          const nameMap: Record<string, string> = {
+            "capsule-1": "Капсула 1",
+            "capsule-2": "Капсула 2",
+            "capsule-3": "Капсула 3",
+            "capsule-4": "Капсула 4",
+            "capsule-5": "Капсула 5",
+            "ivent-zone": "ИвентЗона",
+          };
+          return p.name === nameMap[info.columnKey] || p.name === info.columnLabel;
+        });
+        if (place) {
+          setSelectedCoworkingPlace(place);
+          // По умолчанию используем цену за 1 час
+          if (place.price_1h) {
+            setSelectedServicePrice(place.price_1h);
+            setPaymentTotal(place.price_1h.toLocaleString("ru-RU").replace(/,/g, " "));
+          }
+        }
+      } else if (info.groupKey === "kids") {
+        const services = await fetchKidsServices();
+        setKidsServices(services);
+      }
+    } catch (error) {
+      console.error("Failed to load services:", error);
+    }
+    
     setDrawerMode("create");
     setIsDrawerOpen(true);
   };
 
-  const handleCreateBooking = () => {
+  const handleCreateBooking = async () => {
     if (!selectedSlot) return;
 
-    const title = newBookingClient.trim() || "Новый клиент";
+    // Проверяем, что клиент выбран или введен
+    if (!selectedClient && !newBookingClient.trim()) {
+      toast.error({ text: "Выберите или введите имя клиента" });
+      return;
+    }
+
+    // Проверяем, что для Kids выбрана услуга
+    if (selectedSlot.groupKey === "kids" && !selectedKidsService) {
+      toast.error({ text: "Выберите услугу" });
+      return;
+    }
+
+    const title = selectedClient ? selectedClient.name : (newBookingClient.trim() || "Новый клиент");
     const time = selectedSlot.time as (typeof TIME_SLOTS)[number];
     const status = newBookingStatus;
 
-    const newEvent: CalendarEvent = {
-      id: `new-${Date.now()}`,
-      title,
-      time,
-      status,
-      color: STATUS_COLORS[status],
-      clients: newBookingClient.trim() ? [newBookingClient.trim()] : undefined,
-      peopleCount: 1,
-      phone: newBookingPhone.trim() || undefined,
-      note: newBookingNote.trim() || undefined,
+    // Определяем категорию на основе выбранного слота
+    let category = "Body Mind";
+    if (selectedSlot.groupKey === "cowork") {
+      category = "Коворкинг";
+    } else if (selectedSlot.groupKey === "kids") {
+      category = "Eywa Kids";
+    } else if (selectedSlot.columnKey === "reform") {
+      category = "Pilates Reformer";
+    }
+
+    // Определяем дату записи: для обзора используем сегодняшнюю дату
+    let bookingDate: string;
+    if (viewMode === "overview") {
+      // Для обзора всегда используем сегодняшнюю дату
+      const today = new Date();
+      bookingDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    } else {
+      // Для расписания используем selectedDate или текущую дату
+      bookingDate = selectedDate || (() => {
+        const today = new Date();
+        return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      })();
+    }
+    
+    // Проверка: нельзя создавать записи на прошедшие даты
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const bookingDateObj = new Date(bookingDate);
+    bookingDateObj.setHours(0, 0, 0, 0);
+    
+    if (bookingDateObj < today) {
+      toast.error({ text: "Нельзя создавать записи на прошедшие даты. Выберите сегодняшнюю или будущую дату." });
+      return;
+    }
+
+    // Подготавливаем данные для API
+    const statusMap: Record<EventStatus, "Бронь" | "Оплачено" | "Свободно"> = {
+      reserved: "Бронь",
+      paid: "Оплачено",
+      free: "Свободно",
     };
 
-    const slotKey = makeOverviewSlotKey(selectedSlot.groupKey, selectedSlot.columnKey, selectedSlot.time);
+    // Определяем тренера для Pilates Reformer
+    let trainerId: string | null = null;
+    let trainerName: string | null = null;
+    if (category === "Pilates Reformer" && selectedPilatesTrainer) {
+      trainerName = selectedPilatesTrainer.trainer;
+      // Находим ID тренера из списка
+      const trainer = availableTrainers.find(t => t.name === trainerName);
+      trainerId = trainer?.id || null;
+    } else if (category === "Body Mind" && selectedBodymindGroup) {
+      trainerName = selectedBodymindGroup.trainer;
+      // Находим ID тренера из списка
+      const trainer = availableTrainers.find(t => t.name === trainerName);
+      trainerId = trainer?.id || null;
+    }
 
-    setOverviewSlotsState((prev) => {
-      const updated = {
-        ...prev,
-        [slotKey]: newEvent,
+    const bookingData: ScheduleBookingCreate = {
+      booking_date: bookingDate,
+      booking_time: time,
+      category: category,
+      service_name: category === "Body Mind" ? title : (category === "Eywa Kids" && selectedKidsService ? selectedKidsService.name : null),
+      trainer_id: trainerId,
+      trainer_name: trainerName,
+      clients: selectedClient 
+        ? [{
+            client_id: selectedClient.id,
+            client_name: selectedClient.name,
+            client_phone: selectedClient.phone || null,
+          }]
+        : newBookingClient.trim()
+        ? [{
+            client_id: "",
+            client_name: newBookingClient.trim(),
+            client_phone: newBookingPhone.trim() || null,
+          }]
+        : [],
+      max_capacity: 1,
+      status: statusMap[status],
+      notes: newBookingNote.trim() || null,
+      capsule_id: selectedSlot.groupKey === "cowork" ? selectedSlot.columnKey : null,
+      capsule_name: selectedSlot.groupKey === "cowork" ? selectedSlot.columnLabel : null,
+    };
+
+    try {
+      // Создаем запись через API
+      const createdBooking = await createScheduleBooking(bookingData);
+
+      // Преобразуем ответ API в CalendarEvent
+      const statusMapReverse: Record<string, EventStatus> = {
+        "Бронь": "reserved",
+        "Оплачено": "paid",
+        "Свободно": "free",
       };
 
-      try {
-        if (typeof window !== "undefined") {
-          localStorage.setItem("overviewSlotsState", JSON.stringify(updated));
-        }
-      } catch (error) {
-        console.error("Failed to save overviewSlotsState:", error);
-      }
+    const newEvent: CalendarEvent = {
+        id: getBookingId(createdBooking),
+        title: createdBooking.clients.length > 0
+          ? createdBooking.clients.map(c => c.client_name).join(", ")
+          : createdBooking.service_name || "Свободно",
+        time: createdBooking.booking_time as (typeof TIME_SLOTS)[number],
+        status: statusMapReverse[createdBooking.status] || "free",
+        color: STATUS_COLORS[statusMapReverse[createdBooking.status] || "free"],
+        clients: createdBooking.clients.map(c => c.client_name),
+        peopleCount: createdBooking.current_count,
+        capacity: createdBooking.max_capacity,
+        phone: createdBooking.clients[0]?.client_phone || undefined,
+        note: createdBooking.notes || undefined,
+        coach: createdBooking.trainer_name || undefined,
+    };
 
-      return updated;
-    });
-
+      toast.success({ text: "Запись успешно создана" });
     handleCloseDrawer();
+      
+      // Перезагружаем записи из API (для обзора загружаем только сегодня)
+      await loadBookingsFromApi(viewMode === "overview");
+    } catch (error) {
+      console.error("Failed to create booking:", error);
+      toast.error({ text: "Не удалось создать запись" });
+    }
   };
 
   const handleExtendEvent = () => {
@@ -428,10 +817,24 @@ export default function ScheduleLoadPage() {
     const nextTime = TIME_SLOTS[nextIndex];
     const nextKey = makeOverviewSlotKey(selectedSlot.groupKey, selectedSlot.columnKey, nextTime);
 
-    // Если в следующем слоте уже есть событие — не продлеваем
-    if (overviewSlotsState[nextKey]) {
+    // Проверяем, что в следующем слоте нет другого события
+    const nextSlotEvent = overviewSlotsState[nextKey];
+    if (nextSlotEvent && nextSlotEvent.id !== draftEvent.id) {
       setExtendError("Нельзя продлить: следующий час уже занят другим бронированием.");
       return;
+    }
+
+    // Также проверяем, что следующая ячейка не находится в диапазоне другого события
+    // Проверяем все события в этой колонке
+    for (const checkTime of TIME_SLOTS) {
+      if (checkTime === nextTime) continue; // Пропускаем следующее время
+      const checkKey = makeOverviewSlotKey(selectedSlot.groupKey, selectedSlot.columnKey, checkTime);
+      const checkEvent = overviewSlotsState[checkKey];
+      // Если это другое событие (не наше) и следующее время находится в его диапазоне
+      if (checkEvent && checkEvent.id !== draftEvent.id && checkEvent.time === checkTime && isTimeInEventRange(nextTime, checkEvent)) {
+        setExtendError("Нельзя продлить: следующий час уже занят другим бронированием.");
+        return;
+      }
     }
 
     const updatedEvent: CalendarEvent = {
@@ -469,80 +872,289 @@ export default function ScheduleLoadPage() {
 
     setDraftEvent(updatedEvent);
     setExtendError(null);
+    
+    // Обновляем цену для коворкинга при изменении длительности
+    if (selectedSlot?.groupKey === "cowork" && selectedCoworkingPlace) {
+      const hours = getTimeSlotSpan(updatedEvent.time, updatedEvent.endTime);
+      let newPrice: number | null = null;
+      
+      if (hours === 1 && selectedCoworkingPlace.price_1h) {
+        newPrice = selectedCoworkingPlace.price_1h;
+      } else if (hours === 3 && selectedCoworkingPlace.price_3h) {
+        newPrice = selectedCoworkingPlace.price_3h;
+      } else if (hours >= 8 && selectedCoworkingPlace.price_day) {
+        newPrice = selectedCoworkingPlace.price_day;
+      } else if (selectedCoworkingPlace.price_1h) {
+        // Если нет специальной цены, умножаем цену за час
+        newPrice = selectedCoworkingPlace.price_1h * hours;
+      }
+      
+      if (newPrice) {
+        setSelectedServicePrice(newPrice);
+        setPaymentTotal(newPrice.toLocaleString("ru-RU").replace(/,/g, " "));
+      }
+    }
   };
 
-  const handleSaveEventChanges = () => {
+  const handleSaveEventChanges = async () => {
     if (!selectedEvent || !draftEvent || !selectedSlot) {
       handleCloseDrawer();
       return;
     }
 
-    // Если время и статус не изменились — просто закрываем
+    // Если время, статус и количество человек не изменились — просто закрываем
     if (
       draftEvent.time === selectedEvent.time &&
       draftEvent.endTime === selectedEvent.endTime &&
-      draftEvent.status === selectedEvent.status
+      draftEvent.status === selectedEvent.status &&
+      draftEvent.peopleCount === selectedEvent.peopleCount
     ) {
       handleCloseDrawer();
       return;
     }
 
+    // Всегда обновляем через API, если есть ID записи
+    if (selectedEvent.id) {
+      try {
+        const statusMap: Record<EventStatus, "Бронь" | "Оплачено" | "Свободно"> = {
+          reserved: "Бронь",
+          paid: "Оплачено",
+          free: "Свободно",
+        };
+
+        // Определяем категорию на основе выбранного слота
+        let category = "Body Mind";
+        if (selectedSlot.groupKey === "cowork") {
+          category = "Коворкинг";
+        } else if (selectedSlot.groupKey === "kids") {
+          category = "Eywa Kids";
+        } else if (selectedSlot.columnKey === "reform") {
+          category = "Pilates Reformer";
+        }
+
+        const bookingDate = selectedDate || new Date().toISOString().split('T')[0];
+
+        const updateData: ScheduleBookingUpdate = {
+          booking_date: bookingDate,
+          booking_time: draftEvent.time,
+          category: category,
+          service_name: category === "Body Mind" ? draftEvent.title : null,
+          status: statusMap[draftEvent.status],
+          max_capacity: draftEvent.capacity || 1,
+          current_count: draftEvent.peopleCount || 0,
+          notes: draftEvent.note || null,
+          clients: draftEvent.clients?.map(name => ({
+            client_id: "",
+            client_name: name,
+            client_phone: draftEvent.phone || null,
+          })) || [],
+        };
+
+        const updatedBooking = await updateScheduleBooking(selectedEvent.id, updateData);
+
+        // Преобразуем ответ API в CalendarEvent
+        const statusMapReverse: Record<string, EventStatus> = {
+          "Бронь": "reserved",
+          "Оплачено": "paid",
+          "Свободно": "free",
+        };
+
+        const updatedEvent: CalendarEvent = {
+          id: getBookingId(updatedBooking),
+          title: updatedBooking.clients.length > 0
+            ? updatedBooking.clients.map(c => c.client_name).join(", ")
+            : updatedBooking.service_name || "Свободно",
+          time: updatedBooking.booking_time as (typeof TIME_SLOTS)[number],
+          endTime: draftEvent.endTime, // Сохраняем endTime из draftEvent
+          status: statusMapReverse[updatedBooking.status] || "free",
+          color: STATUS_COLORS[statusMapReverse[updatedBooking.status] || "free"],
+          clients: updatedBooking.clients.map(c => c.client_name),
+          peopleCount: updatedBooking.current_count,
+          capacity: updatedBooking.max_capacity,
+          phone: updatedBooking.clients[0]?.client_phone || undefined,
+          note: updatedBooking.notes || undefined,
+          coach: updatedBooking.trainer_name || undefined,
+        };
+
     const startKey = makeOverviewSlotKey(
       selectedSlot.groupKey,
       selectedSlot.columnKey,
       selectedEvent.time as (typeof TIME_SLOTS)[number],
     );
 
-    setOverviewSlotsState((prev) => {
-      const updated = {
-        ...prev,
-        [startKey]: draftEvent,
-      };
+        // Не обновляем локальное состояние - данные будут перезагружены из API
 
-      try {
-        if (typeof window !== "undefined") {
-          localStorage.setItem("overviewSlotsState", JSON.stringify(updated));
-        }
+        toast.success({ text: "Запись успешно обновлена" });
+        handleCloseDrawer();
+        
+        // Перезагружаем записи из API (для обзора загружаем только сегодня)
+        await loadBookingsFromApi(viewMode === "overview");
       } catch (error) {
-        console.error("Failed to save overviewSlotsState:", error);
+        console.error("Failed to update booking:", error);
+        toast.error({ text: "Не удалось обновить запись" });
       }
+    } else {
+      // Если нет ID - создаем новую запись через API
+      try {
+        const statusMap: Record<EventStatus, "Бронь" | "Оплачено" | "Свободно"> = {
+          reserved: "Бронь",
+          paid: "Оплачено",
+          free: "Свободно",
+        };
 
-      return updated;
-    });
+        let category = "Body Mind";
+        if (selectedSlot.groupKey === "cowork") {
+          category = "Коворкинг";
+        } else if (selectedSlot.columnKey === "reform") {
+          category = "Pilates Reformer";
+        }
 
-    handleCloseDrawer();
+        const bookingDate = selectedDate || new Date().toISOString().split('T')[0];
+
+        const bookingData: ScheduleBookingCreate = {
+          booking_date: bookingDate,
+          booking_time: draftEvent.time,
+          category: category,
+          service_name: category === "Body Mind" ? draftEvent.title : null,
+          trainer_id: null,
+          trainer_name: draftEvent.coach || null,
+          clients: draftEvent.clients?.map(name => ({
+            client_id: "",
+            client_name: name,
+            client_phone: draftEvent.phone || null,
+          })) || [],
+          max_capacity: draftEvent.capacity || 1,
+          current_count: draftEvent.peopleCount || 0,
+          status: statusMap[draftEvent.status],
+          notes: draftEvent.note || null,
+          capsule_id: selectedSlot.columnKey.startsWith("capsule-") ? selectedSlot.columnKey : null,
+          capsule_name: selectedSlot.columnLabel || null,
+        };
+
+        await createScheduleBooking(bookingData);
+        toast.success({ text: "Запись успешно создана" });
+        handleCloseDrawer();
+        
+        // Перезагружаем записи из API
+        const weekStart = getStartOfWeek(currentDate);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        const startDate = weekStart.toISOString().split('T')[0];
+        const endDate = weekEnd.toISOString().split('T')[0];
+        
+        const bookings = await fetchScheduleBookings({ start_date: startDate, end_date: endDate });
+        const newSlots: Record<string, CalendarEvent | null> = {};
+        
+        OVERVIEW_GROUPS.forEach((group) => {
+          group.columns.forEach((column) => {
+            TIME_SLOTS.forEach((time) => {
+              const slotKey = makeOverviewSlotKey(group.key, column.key, time);
+              newSlots[slotKey] = null;
+            });
+          });
+        });
+        
+        bookings.forEach((booking) => {
+          let groupKey = "cowork";
+          let columnKey = "capsule-1";
+            
+          if (booking.category === "Body Mind") {
+            groupKey = "bodymind";
+            columnKey = "body";
+          } else if (booking.category === "Pilates Reformer") {
+            groupKey = "bodymind";
+            columnKey = "reform";
+            } else if (booking.category === "Коворкинг") {
+              groupKey = "cowork";
+              // Определяем колонку на основе capsule_name или capsule_id
+              if (booking.capsule_name) {
+                const capsuleMap: Record<string, string> = {
+                  "Капсула 1": "capsule-1",
+                  "Капсула 2": "capsule-2",
+                  "Капсула 3": "capsule-3",
+                  "Капсула 4": "capsule-4",
+                  "Капсула 5": "capsule-5",
+                  "ИвентЗона": "ivent-zone",
+                };
+                columnKey = capsuleMap[booking.capsule_name] || booking.capsule_id || "capsule-1";
+              } else if (booking.capsule_id) {
+                columnKey = booking.capsule_id;
+              }
+            } else if (booking.category === "Eywa Kids") {
+              groupKey = "kids";
+              columnKey = "kids";
+          }
+          const slotKey = makeOverviewSlotKey(
+            groupKey,
+            columnKey,
+            booking.booking_time as (typeof TIME_SLOTS)[number]
+          );
+          const statusMapReverse: Record<string, EventStatus> = {
+            "Бронь": "reserved",
+            "Оплачено": "paid",
+            "Свободно": "free",
+          };
+          const event: CalendarEvent = {
+            id: getBookingId(booking),
+            title: booking.clients.length > 0 
+              ? booking.clients.map(c => c.client_name).join(", ")
+              : booking.service_name || "Свободно",
+            time: booking.booking_time as (typeof TIME_SLOTS)[number],
+            status: statusMapReverse[booking.status] || "free",
+            color: STATUS_COLORS[statusMapReverse[booking.status] || "free"],
+            clients: booking.clients.map(c => c.client_name),
+            peopleCount: booking.current_count,
+            capacity: booking.max_capacity,
+            phone: booking.clients[0]?.client_phone || undefined,
+            note: booking.notes || undefined,
+            coach: booking.trainer_name || undefined,
+          };
+          newSlots[slotKey] = event;
+        });
+        
+        setOverviewSlotsState(newSlots);
+      } catch (error) {
+        console.error("Failed to create booking:", error);
+        toast.error({ text: "Не удалось создать запись" });
+      }
+    }
   };
 
   const handleDeleteEvent = () => {
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
     if (!selectedEvent || !selectedSlot) {
+      setShowDeleteModal(false);
       handleCloseDrawer();
       return;
     }
 
-    const startKey = makeOverviewSlotKey(
-      selectedSlot.groupKey,
-      selectedSlot.columnKey,
-      selectedEvent.time as (typeof TIME_SLOTS)[number],
-    );
-
-    setOverviewSlotsState((prev) => {
-      const updated = { ...prev, [startKey]: null };
-
+    // Всегда удаляем через API, если есть ID
+    if (selectedEvent.id) {
       try {
-        if (typeof window !== "undefined") {
-          localStorage.setItem("overviewSlotsState", JSON.stringify(updated));
-        }
+        await deleteScheduleBooking(selectedEvent.id);
+        
+        toast.success({ text: "Запись успешно удалена" });
+        setShowDeleteModal(false);
+        handleCloseDrawer();
+        
+        // Перезагружаем записи из API (для обзора загружаем только сегодня)
+        await loadBookingsFromApi(viewMode === "overview");
       } catch (error) {
-        console.error("Failed to save overviewSlotsState:", error);
+        console.error("Failed to delete booking:", error);
+        toast.error({ text: "Не удалось удалить запись" });
+        setShowDeleteModal(false);
       }
-
-      return updated;
-    });
-
-    handleCloseDrawer();
+    } else {
+      // Если нет ID - просто закрываем модальное окно
+      setShowDeleteModal(false);
+      handleCloseDrawer();
+    }
   };
 
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = async () => {
     if (!selectedSlot || (!selectedEvent && !draftEvent)) {
       handleCloseDrawer();
       return;
@@ -566,6 +1178,112 @@ export default function ScheduleLoadPage() {
     // Если указана только общая сумма, а части не указаны — считаем, что всё наличными
     if (totalNum && !cashNum && !cardNum) {
       cashNum = totalNum;
+    }
+
+    if (totalNum <= 0) {
+      toast.error({ text: "Укажите сумму оплаты" });
+      return;
+    }
+
+    try {
+      // Определяем клиента
+      const clientName = baseEvent.clients?.[0] || baseEvent.title || "Не указан";
+      const clientPhone = baseEvent.phone || null;
+      
+      // Определяем услугу
+      let serviceId: string | null = null;
+      let serviceName: string | null = null;
+      let serviceCategory: string | null = null;
+      let paymentHours: number | null = null;
+      
+      if (selectedSlot.groupKey === "kids") {
+        // Для Kids пытаемся использовать selectedKidsService, если есть
+        if (selectedKidsService) {
+          serviceId = selectedKidsService.id;
+          serviceName = selectedKidsService.name;
+          serviceCategory = "Kids";
+        } else {
+          // Если selectedKidsService не установлен, используем данные из selectedSlot
+          serviceName = selectedSlot.columnLabel || "Eywa Kids";
+          serviceCategory = "Kids";
+          // Пытаемся загрузить услуги и найти нужную
+          try {
+            const services = await fetchKidsServices();
+            const service = services.find(s => s.name === selectedSlot.columnLabel) || services[0];
+            if (service) {
+              serviceId = service.id;
+              serviceName = service.name;
+            }
+          } catch (error) {
+            console.error("Failed to load kids services:", error);
+          }
+        }
+      } else if (selectedSlot.groupKey === "cowork") {
+        // Для коворкинга вычисляем часы
+        paymentHours = baseEvent.endTime 
+          ? getTimeSlotSpan(baseEvent.time, baseEvent.endTime)
+          : 1;
+        
+        // Пытаемся использовать selectedCoworkingPlace, если есть
+        if (selectedCoworkingPlace) {
+          serviceId = selectedCoworkingPlace.id;
+          serviceName = `${selectedCoworkingPlace.name} (${paymentHours} ${paymentHours === 1 ? "час" : paymentHours < 5 ? "часа" : "часов"})`;
+          serviceCategory = "Коворкинг";
+        } else {
+          // Если selectedCoworkingPlace не установлен, используем данные из selectedSlot
+          const placeName = selectedSlot.columnLabel || "Коворкинг";
+          serviceName = `${placeName} (${paymentHours} ${paymentHours === 1 ? "час" : paymentHours < 5 ? "часа" : "часов"})`;
+          serviceCategory = "Коворкинг";
+          // Пытаемся загрузить места и найти нужное
+          try {
+            const places = await fetchCoworkingPlaces();
+            const nameMap: Record<string, string> = {
+              "capsule-1": "Капсула 1",
+              "capsule-2": "Капсула 2",
+              "capsule-3": "Капсула 3",
+              "capsule-4": "Капсула 4",
+              "capsule-5": "Капсула 5",
+              "ivent-zone": "ИвентЗона",
+            };
+            const place = places.find(p => 
+              p.name === nameMap[selectedSlot.columnKey] || 
+              p.name === selectedSlot.columnLabel
+            );
+            if (place) {
+              serviceId = place.id;
+            }
+          } catch (error) {
+            console.error("Failed to load coworking places:", error);
+          }
+        }
+      }
+
+      // Создаем оплату через API
+      await createPayment({
+        client_id: selectedClient?.id || null,
+        client_name: clientName,
+        client_phone: clientPhone || null,
+        service_id: serviceId || null,
+        service_name: serviceName || "Услуга",
+        service_category: serviceCategory || null,
+        total_amount: totalNum,
+        cash_amount: cashNum,
+        transfer_amount: cardNum,
+        quantity: 1,
+        hours: paymentHours,
+        comment: baseEvent.note || null,
+        status: "completed",
+      });
+
+      // Обновляем статус записи через API
+      if (baseEvent.id) {
+        try {
+          await updateScheduleBooking(baseEvent.id, {
+            status: "Оплачено",
+          });
+        } catch (error) {
+          console.error("Failed to update booking status:", error);
+        }
     }
 
     const totalStr = totalNum
@@ -605,14 +1323,6 @@ export default function ScheduleLoadPage() {
         [startKey]: updatedEvent,
       };
 
-      try {
-        if (typeof window !== "undefined") {
-          localStorage.setItem("overviewSlotsState", JSON.stringify(updated));
-        }
-      } catch (error) {
-        console.error("Failed to save overviewSlotsState:", error);
-      }
-
       return updated;
     });
 
@@ -622,8 +1332,26 @@ export default function ScheduleLoadPage() {
     setPaymentTotal("");
     setPaymentCash("");
     setPaymentCard("");
+    setIsCashSelected(false);
+    setIsCardSelected(false);
+      
+      toast.success({ text: "Оплата успешно создана" });
+      
+      // Перезагружаем записи из API (для обзора загружаем только сегодня)
+      await loadBookingsFromApi(viewMode === "overview");
+      
     handleCloseDrawer();
+    } catch (error) {
+      console.error("Failed to create payment:", error);
+      toast.error({ text: "Не удалось создать оплату" });
+    }
   };
+
+  // Логирование состояния модального окна удаления для Pilates
+  useEffect(() => {
+    if (drawerMode === "pilates") {
+    }
+  }, [showDeleteModal, drawerMode]);
 
   useEffect(() => {
     if (!showDatePicker) return;
@@ -639,29 +1367,78 @@ export default function ScheduleLoadPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showDatePicker]);
 
+  // Обработчик закрытия календаря в режиме обзора при клике вне его
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const saved = localStorage.getItem("overviewSlotsState");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setOverviewSlotsState((prev) => ({ ...prev, ...parsed }));
-      } catch (error) {
-        console.error("Failed to parse saved overviewSlotsState:", error);
+    if (!showOverviewDatePicker) return;
+    const handler = (event: MouseEvent) => {
+      if (
+        overviewDatePickerRef.current &&
+        !overviewDatePickerRef.current.contains(event.target as Node)
+      ) {
+        setShowOverviewDatePicker(false);
       }
-    }
-  }, []);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showOverviewDatePicker]);
+
+  // Удаляем этот useEffect, так как логика загрузки из localStorage теперь в useState
+  // useEffect(() => {
+  //   // Логика загрузки из localStorage перенесена в useState
+  // }, []);
 
   useEffect(() => {
     if (!calendarRef.current) return;
     const api = calendarRef.current.getApi();
     const currentApiDate = api.getDate();
     if (currentApiDate.toDateString() !== currentDate.toDateString()) {
+      // Используем setTimeout, чтобы избежать вызова flushSync во время рендеринга
+      setTimeout(() => {
       api.gotoDate(currentDate);
+      }, 0);
     }
   }, [currentDate]);
 
   const weekStart = useMemo(() => getStartOfWeek(currentDate), [currentDate]);
+
+  // Автоматическая прокрутка к сегодняшнему дню при загрузке
+  useEffect(() => {
+    if (viewMode === "schedule" && todayHeaderRef.current && scheduleContainerRef.current) {
+      // Небольшая задержка, чтобы DOM успел отрендериться
+      setTimeout(() => {
+        todayHeaderRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+          inline: "center",
+        });
+      }, 100);
+    }
+  }, [viewMode, weekStart]);
+
+  // Фильтруем данные по текущей неделе
+  const filteredScheduleGroups = useMemo(() => {
+    const weekStartString = weekStart.toISOString().split('T')[0].substring(0, 10); // YYYY-MM-DD
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const weekEndString = weekEnd.toISOString().split('T')[0].substring(0, 10);
+    
+    return scheduleGroups.filter(group => {
+      const groupDate = group.date;
+      return groupDate >= weekStartString && groupDate <= weekEndString;
+    });
+  }, [scheduleGroups, weekStart]);
+
+  const filteredScheduleTrainers = useMemo(() => {
+    const weekStartString = weekStart.toISOString().split('T')[0].substring(0, 10); // YYYY-MM-DD
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const weekEndString = weekEnd.toISOString().split('T')[0].substring(0, 10);
+    
+    return scheduleTrainers.filter(trainer => {
+      const trainerDate = trainer.date;
+      return trainerDate >= weekStartString && trainerDate <= weekEndString;
+    });
+  }, [scheduleTrainers, weekStart]);
 
   const getDateForDayKey = useCallback(
     (dayKey: string) => {
@@ -715,16 +1492,17 @@ export default function ScheduleLoadPage() {
     const firstDay = new Date(year, month, 1);
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const startWeekDay = (firstDay.getDay() + 6) % 7;
-    const weeks: Array<Array<number | null>> = [];
+    const weeks: Array<Array<{ day: number; date: Date } | null>> = [];
     let dayCounter = 1 - startWeekDay;
 
     for (let week = 0; week < 6; week++) {
-      const weekDays: Array<number | null> = [];
+      const weekDays: Array<{ day: number; date: Date } | null> = [];
       for (let day = 0; day < 7; day++, dayCounter++) {
         if (dayCounter < 1 || dayCounter > daysInMonth) {
           weekDays.push(null);
         } else {
-          weekDays.push(dayCounter);
+          const date = new Date(year, month, dayCounter);
+          weekDays.push({ day: dayCounter, date });
         }
       }
       weeks.push(weekDays);
@@ -742,7 +1520,7 @@ export default function ScheduleLoadPage() {
     return OVERVIEW_GROUPS.map((group) => ({
       ...group,
       columns: group.columns.map((column) => {
-        const slots: OverviewSlots = {};
+        const slots = {} as OverviewSlots;
         TIME_SLOTS.forEach((time) => {
           const key = makeOverviewSlotKey(group.key, column.key, time);
           slots[time as (typeof TIME_SLOTS)[number]] = overviewSlotsState[key] ?? null;
@@ -772,16 +1550,17 @@ export default function ScheduleLoadPage() {
         ...group,
         columns: group.columns.map((column) => {
           const filteredSlots = Object.entries(column.slots).reduce<OverviewSlots>((acc, [time, event]) => {
-            if (!event) return acc;
+            if (event) {
             const matches =
               event.title.toLowerCase().includes(query) ||
               event.clients?.some((client) => client.toLowerCase().includes(query)) ||
               (event.coach && event.coach.toLowerCase().includes(query));
             if (matches) {
               acc[time as (typeof TIME_SLOTS)[number]] = event;
+              }
             }
             return acc;
-          }, {});
+          }, createEmptySlots());
           return { ...column, slots: filteredSlots };
         }),
       }));
@@ -792,12 +1571,11 @@ export default function ScheduleLoadPage() {
         ...group,
         columns: group.columns.map((column) => {
           const filteredSlots = Object.entries(column.slots).reduce<OverviewSlots>((acc, [time, event]) => {
-            if (!event) return acc;
-            if (event.status === statusFilter) {
+            if (event && event.status === statusFilter) {
               acc[time as (typeof TIME_SLOTS)[number]] = event;
             }
             return acc;
-          }, {});
+          }, createEmptySlots());
           return { ...column, slots: filteredSlots };
         }),
       }));
@@ -857,6 +1635,52 @@ export default function ScheduleLoadPage() {
     setCurrentDate(next);
   };
 
+  // Swipe handlers для навигации по неделям
+  const swipeStartX = useRef<number | null>(null);
+  const swipeStartY = useRef<number | null>(null);
+  const swipeThreshold = 50; // Минимальное расстояние для свайпа
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    swipeStartX.current = e.touches[0].clientX;
+    swipeStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    // Предотвращаем скролл страницы во время свайпа
+    if (swipeStartX.current !== null && swipeStartY.current !== null) {
+      const deltaX = Math.abs(e.touches[0].clientX - swipeStartX.current);
+      const deltaY = Math.abs(e.touches[0].clientY - swipeStartY.current);
+      
+      // Если горизонтальное движение больше вертикального, предотвращаем скролл
+      if (deltaX > deltaY) {
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (swipeStartX.current === null || swipeStartY.current === null) return;
+
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    const deltaX = endX - swipeStartX.current;
+    const deltaY = Math.abs(endY - swipeStartY.current);
+
+    // Проверяем, что это горизонтальный свайп (не вертикальный скролл)
+    if (Math.abs(deltaX) > swipeThreshold && Math.abs(deltaX) > deltaY) {
+      if (deltaX > 0) {
+        // Свайп вправо - предыдущая неделя
+        handleDateShift(-7);
+      } else {
+        // Свайп влево - следующая неделя
+        handleDateShift(7);
+      }
+    }
+
+    swipeStartX.current = null;
+    swipeStartY.current = null;
+  };
+
   const handleMonthNavigate = (offset: number) => {
     const next = new Date(currentDate);
     next.setMonth(next.getMonth() + offset);
@@ -868,10 +1692,37 @@ export default function ScheduleLoadPage() {
     next.setDate(day);
     setCurrentDate(next);
     setShowDatePicker(false);
+    setShowOverviewDatePicker(false);
   };
 
   const renderEventContent = useCallback((arg: EventContentArg) => {
-    return <div className="h-full w-full" />;
+    // Safely extract text from event
+    let displayText = "";
+    try {
+      if (arg.event?.title) {
+        displayText = String(arg.event.title);
+      } else if (arg.text) {
+        // arg.text can be string, HTMLElement, or object
+        if (typeof arg.text === "string") {
+          displayText = arg.text;
+        } else if (arg.text instanceof HTMLElement) {
+          displayText = arg.text.textContent || arg.text.innerText || "";
+        } else {
+          displayText = String(arg.text);
+        }
+      }
+    } catch (e) {
+      console.warn("Error extracting text from event:", e);
+      displayText = "";
+    }
+    
+    return (
+      <div className="h-full w-full flex items-center justify-center p-1">
+        <span className="text-xs font-medium truncate" style={{ color: "var(--foreground)" }}>
+          {displayText}
+        </span>
+      </div>
+    );
   }, []);
 
   return (
@@ -887,7 +1738,9 @@ export default function ScheduleLoadPage() {
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap gap-2">
-            {statusFilters.map((filter) => (
+            {viewMode === "overview" ? (
+              // Фильтры статусов для режима "Обзор"
+              statusFilters.map((filter) => (
               <button
                 key={filter.value}
                 type="button"
@@ -903,24 +1756,35 @@ export default function ScheduleLoadPage() {
               >
                 {filter.label}
               </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" style={{ color: "var(--muted-foreground)" }} />
-              <input
-                type="text"
-                placeholder="Поиск по клиенту или тренеру"
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                className="h-10 min-w-[240px] rounded-xl border pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-offset-2"
+              ))
+            ) : (
+              // Фильтры категорий для режима "Расписание"
+              categoryFilters.map((filter) => (
+                <button
+                  key={filter.value}
+                  type="button"
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                    categoryFilter === filter.value ? "border-2" : "border"
+                  }`}
                 style={{
-                  background: "var(--panel)",
-                  borderColor: "var(--card-border)",
-                  color: "var(--foreground)",
-                }}
-              />
+                    borderColor: categoryFilter === filter.value ? filter.color : "var(--card-border)",
+                    background: categoryFilter === filter.value 
+                      ? filter.value === "bodymind" 
+                        ? "rgba(99, 102, 241, 0.1)" 
+                        : filter.value === "pilates"
+                        ? "rgba(16, 185, 129, 0.1)"
+                        : "var(--muted)"
+                      : "var(--panel)",
+                    color: categoryFilter === filter.value ? filter.color : "var(--foreground)",
+                  }}
+                  onClick={() => setCategoryFilter(filter.value)}
+                >
+                  {filter.label}
+                </button>
+              ))
+            )}
             </div>
+          <div className="flex flex-wrap items-center gap-2">
             <div className="relative" ref={datePickerRef}>
               <button
                 type="button"
@@ -930,7 +1794,10 @@ export default function ScheduleLoadPage() {
                   borderColor: "var(--card-border)",
                   color: "var(--foreground)",
                 }}
-                onClick={() => setShowDatePicker((prev) => !prev)}
+                onClick={() => {
+                  setShowDatePicker((prev) => !prev);
+                  setShowOverviewDatePicker(false); // Закрываем календарь обзора если открыт
+                }}
               >
                 <CalendarIcon className="h-4 w-4" />
                 {currentDate.toLocaleDateString("ru-RU", {
@@ -974,26 +1841,29 @@ export default function ScheduleLoadPage() {
                   </div>
                   <div className="grid grid-cols-7 gap-1 text-sm">
                     {calendarWeeks.map((week, weekIndex) =>
-                      week.map((day, dayIndex) =>
-                        day ? (
+                      week.map((dayData, dayIndex) => {
+                        if (!dayData) {
+                          return <span key={`${weekIndex}-${dayIndex}`} className="h-9" />;
+                        }
+                        const { day, date } = dayData;
+                        const isActive = date.toDateString() === currentDate.toDateString();
+                        return (
                           <button
                             key={`${weekIndex}-${dayIndex}`}
                             type="button"
                             className={`h-9 rounded-xl transition-colors ${
-                              day === currentDate.getDate() ? "font-semibold" : "hover:opacity-80"
+                              isActive ? "font-semibold" : "hover:opacity-80"
                             }`}
                             style={{
-                              background: day === currentDate.getDate() ? "var(--muted)" : "transparent",
-                              color: day === currentDate.getDate() ? "var(--foreground)" : "var(--muted-foreground)",
+                              background: isActive ? "var(--muted)" : "transparent",
+                              color: isActive ? "var(--foreground)" : "var(--muted-foreground)",
                             }}
                             onClick={() => handleDateSelect(day)}
                           >
                             {day}
                           </button>
-                        ) : (
-                          <span key={`${weekIndex}-${dayIndex}`} className="h-9" />
-                        ),
-                      ),
+                        );
+                      }),
                     )}
                   </div>
                 </div>
@@ -1020,6 +1890,7 @@ export default function ScheduleLoadPage() {
               })}
             </p>
           </div>
+          <div className="flex items-center gap-2">
           <div className="flex gap-2 rounded-xl p-1" style={{ background: "var(--muted)" }}>
             {(["overview", "schedule"] as ViewMode[]).map((mode) => (
               <button
@@ -1037,211 +1908,616 @@ export default function ScheduleLoadPage() {
                 {mode === "overview" ? "Обзор" : "Расписание"}
               </button>
             ))}
+            </div>
           </div>
         </div>
       </Card>
 
       {/* Календарь */}
         {viewMode === "overview" ? (
-        <Card className="overflow-hidden p-0">
-          <div className="p-4 border-b" style={{ borderColor: "var(--card-border)" }}>
-            <h3 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Обзор загрузки</h3>
-          </div>
-          <div className="px-4 pt-4 flex flex-wrap gap-3">
-            {(["reserved", "paid", "free"] as const).map((status) => (
+          <div className="space-y-4">
+            {/* Заголовок с сегодняшней датой */}
+            <Card>
               <div
-                key={status}
-                className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium"
-                style={{
-                  background: STATUS_COLORS[status] + "12",
-                  border: `1px solid ${STATUS_COLORS[status]}33`,
-                  color: STATUS_COLORS[status],
-                }}
+                className="flex items-center justify-between gap-4"
+                style={{ touchAction: "pan-y" }}
               >
-                <div
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ background: STATUS_COLORS[status] }}
-                />
-                <span>{STATUS_LABELS[status]}</span>
-                <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                  {overviewStatusCounts[status] ?? 0}
-                </span>
-              </div>
-            ))}
+                <div>
+                  <p className="text-xs uppercase tracking-wide mb-1" style={{ color: "var(--muted-foreground)" }}>
+                    Обзор дня
+                  </p>
+                  <h3 className="text-xl font-semibold" style={{ color: "var(--foreground)" }}>
+                    {currentDate.toLocaleDateString("ru-RU", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </h3>
           </div>
-          <div className="p-4 overflow-x-auto">
-            <div className="schedule-load-overview" style={{ gridTemplateColumns: overviewTemplate, minWidth: "fit-content" }}>
-              <div className="schedule-load-group-header" style={{ gridColumn: 1 }}></div>
-              {overviewGroupsWithState.map((group, groupIndex) => {
-                // Вычисляем начальную колонку для группы (начинается со 2-й колонки)
-                let startColumn = 2;
-                for (let i = 0; i < groupIndex; i++) {
-                  startColumn += overviewGroupsWithState[i].columns.length;
-                }
-                return (
-                    <div
-                      key={group.key}
-                    className="schedule-load-group-header"
-                    style={{ gridColumn: `${startColumn} / span ${group.columns.length}` }}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
+                    style={{ borderColor: "var(--card-border)", color: "var(--foreground)" }}
+                    onClick={() => {
+                      const prevDay = new Date(currentDate);
+                      prevDay.setDate(prevDay.getDate() - 1);
+                      setCurrentDate(prevDay);
+                    }}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="flex h-10 w-10 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
+                    style={{ borderColor: "var(--card-border)", color: "var(--foreground)" }}
+                    onClick={() => {
+                      const nextDay = new Date(currentDate);
+                      nextDay.setDate(nextDay.getDate() + 1);
+                      setCurrentDate(nextDay);
+                    }}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <div className="relative" ref={overviewDatePickerRef}>
+                    <button
+                      type="button"
+                      className="px-4 py-2 rounded-xl border text-sm font-medium transition-colors hover:opacity-80"
+                      style={{ borderColor: "var(--card-border)", color: "var(--foreground)" }}
+                              onClick={() => {
+                        setCurrentDate(new Date());
+                        setShowOverviewDatePicker(true);
+                        setShowDatePicker(false); // Закрываем верхний календарь если открыт
+                      }}
                     >
-                      {group.label}
+                      Сегодня
+                    </button>
+                    {showOverviewDatePicker && (
+                      <div className="absolute right-0 mt-2 w-64 rounded-xl border p-3 shadow-lg z-50" style={{ background: "var(--panel)", borderColor: "var(--card-border)" }}>
+                        <div className="mb-2 flex items-center justify-between">
+                      <button
+                        type="button"
+                            className="flex h-8 w-8 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
+                        style={{ borderColor: "var(--card-border)", color: "var(--foreground)" }}
+                            onClick={() => handleMonthNavigate(-1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                          <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                            {currentDate.toLocaleDateString("ru-RU", {
+                              month: "long",
+                              year: "numeric",
+                            })}
+                          </span>
+                      <button
+                        type="button"
+                            className="flex h-8 w-8 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
+                        style={{ borderColor: "var(--card-border)", color: "var(--foreground)" }}
+                            onClick={() => handleMonthNavigate(1)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                    </button>
                     </div>
-                );
-              })}
+                        <div className="grid grid-cols-7 gap-1 text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--muted-foreground)" }}>
+                          {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((label) => (
+                            <span key={label} className="text-center">
+                              {label}
+                                  </span>
+                          ))}
+                                </div>
+                        <div className="grid grid-cols-7 gap-1 text-sm">
+                          {calendarWeeks.map((week, weekIndex) =>
+                            week.map((dayData, dayIndex) => {
+                              if (!dayData) {
+                                return <span key={`${weekIndex}-${dayIndex}`} className="h-9" />;
+                              }
+                              const { day, date } = dayData;
+                              const isActive = date.toDateString() === currentDate.toDateString();
+                        return (
+                                <button
+                                  key={`${weekIndex}-${dayIndex}`}
+                                  type="button"
+                                  className={`h-9 rounded-xl transition-colors ${
+                                    isActive ? "font-semibold" : "hover:opacity-80"
+                                  }`}
+                                style={{
+                                    background: isActive ? "var(--muted)" : "transparent",
+                                    color: isActive ? "var(--foreground)" : "var(--muted-foreground)",
+                                  }}
+                                  onClick={() => handleDateSelect(day)}
+                                >
+                                  {day}
+                                </button>
+                              );
+                            }),
+                                            )}
+                                    </div>
+                                      </div>
+              )}
+            </div>
+              </div>
+          </div>
+            </Card>
+
+            {/* Таблица обзора в стиле расписания */}
+          <div className="p-4 overflow-x-auto">
+            {(() => {
+              // Получаем dayKey для сегодняшнего дня в формате, который используется в данных ("monday", "tuesday", etc.)
+              const getDayKeyFromDate = (date: Date): string => {
+                const dayOfWeek = date.getDay();
+                // Преобразуем день недели в полное название дня (как в данных)
+                const dayMap: Record<number, string> = {
+                  0: "sunday",    // Воскресенье
+                  1: "monday",    // Понедельник
+                  2: "tuesday",   // Вторник
+                  3: "wednesday", // Среда
+                  4: "thursday",  // Четверг
+                  5: "friday",    // Пятница
+                  6: "saturday",  // Суббота
+                };
+                return dayMap[dayOfWeek] || "monday";
+              };
+
+              const formatDate = (date: Date) => {
+                const day = date.getDate();
+                const month = date.toLocaleDateString("ru-RU", { month: "long" });
+                return `${day} ${month}`;
+              };
+
+              // Получаем dayKey для текущей даты
+              const todayDayKey = getDayKeyFromDate(currentDate);
+              
+              // Маппинг dayKey на русские названия дней (полные названия, как в данных)
+              const dayKeyToLabel: Record<string, string> = {
+                monday: "Понедельник",
+                tuesday: "Вторник",
+                wednesday: "Среда",
+                thursday: "Четверг",
+                friday: "Пятница",
+                saturday: "Суббота",
+                sunday: "Воскресенье",
+              };
+
+              // Структура данных для одного дня (сегодня)
+              const overviewDays = [
+                { key: todayDayKey, label: dayKeyToLabel[todayDayKey] || "Сегодня", date: new Date(currentDate) },
+              ] as const;
+
+              // Колонки: коворкинг, Body Mind по дням, Pilates Reformer по дням, Kids
+              const coworkColumns = OVERVIEW_GROUPS.find(g => g.key === "cowork")?.columns || [];
+              const kidsColumns = OVERVIEW_GROUPS.find(g => g.key === "kids")?.columns || [];
+              
+              // Body Mind и Pilates Reformer по дням недели
+              const bodymindColumns = overviewDays.map(day => ({
+                key: `${day.key}-bodymind`,
+                label: "Body Mind",
+                dayKey: day.key,
+                category: "bodymind" as const,
+                type: "schedule" as const,
+              }));
+              
+              const pilatesColumns = overviewDays.map(day => ({
+                key: `${day.key}-pilates`,
+                label: "Pilates Reformer",
+                dayKey: day.key,
+                category: "pilates" as const,
+                type: "schedule" as const,
+              }));
+
+              const overviewColumns = [
+                // Коворкинг
+                ...coworkColumns.map(col => ({
+                  key: col.key,
+                  label: col.label,
+                  capacityLabel: col.capacityLabel,
+                  type: "cowork" as const,
+                })),
+                // Body Mind по дням
+                ...bodymindColumns,
+                // Pilates Reformer по дням
+                ...pilatesColumns,
+                // Kids
+                ...kidsColumns.map(col => ({
+                  key: col.key,
+                  label: col.label,
+                  capacityLabel: col.capacityLabel,
+                  type: "kids" as const,
+                })),
+              ];
+
+              // Создаем template для grid: 1 колонка для времени + колонки для всех групп
+              const overviewTemplate = `80px repeat(${overviewColumns.length}, 200px)`;
+
+              // Вычисляем начальные колонки для групп
+              const coworkStartColumn = 2;
+              const bodymindStartColumn = coworkStartColumn + coworkColumns.length;
+              const pilatesStartColumn = bodymindStartColumn + bodymindColumns.length;
+              const kidsStartColumn = pilatesStartColumn + pilatesColumns.length;
+
+              return (
+                <div className="schedule-load-overview" style={{ gridTemplateColumns: overviewTemplate, minWidth: "fit-content" }}>
+                  {/* Пустая ячейка в первом ряду */}
+                  <div className="schedule-load-group-header" style={{ gridColumn: 1 }}></div>
+                  
+                  {/* Заголовок группы Коворкинг */}
+                  {coworkColumns.length > 0 && (
+                    <div
+                    className="schedule-load-group-header"
+                      style={{ gridColumn: `${coworkStartColumn} / span ${coworkColumns.length}` }}
+                    >
+                      Коворкинг
+                    </div>
+                  )}
+
+                  {/* Заголовок группы Body Mind */}
+                  {bodymindColumns.length > 0 && (
+                    <div
+                      className="schedule-load-group-header"
+                      style={{ gridColumn: `${bodymindStartColumn} / span ${bodymindColumns.length}` }}
+                    >
+                      Body & Mind
+                    </div>
+                  )}
+
+                  {/* Заголовок группы Pilates Reformer */}
+                  {pilatesColumns.length > 0 && (
+                    <div
+                      className="schedule-load-group-header"
+                      style={{ gridColumn: `${pilatesStartColumn} / span ${pilatesColumns.length}` }}
+                    >
+                      Pilates Reformer
+                    </div>
+                  )}
+
+                  {/* Заголовок группы Kids */}
+                  {kidsColumns.length > 0 && (
+                    <div
+                      className="schedule-load-group-header"
+                      style={{ gridColumn: `${kidsStartColumn} / span ${kidsColumns.length}` }}
+                    >
+                      Eywa Kids
+                    </div>
+                  )}
+
+                  {/* Заголовок времени */}
               <div className="schedule-load-column-header schedule-load-column-header--time" style={{ gridColumn: 1 }}>
                 <span>Время</span>
                 </div>
-              {overviewGroupsWithState.flatMap((group, groupIndex) => {
-                // Вычисляем начальную колонку для первой колонки группы
-                let startColumn = 2;
-                for (let i = 0; i < groupIndex; i++) {
-                  startColumn += overviewGroupsWithState[i].columns.length;
-                }
-                return group.columns.map((column, columnIndex) => {
-                  const isLastColumnInGroup = columnIndex === group.columns.length - 1;
-                  const isLastGroup = groupIndex === overviewGroupsWithState.length - 1;
-                  const hasRightBorder = !isLastColumnInGroup || !isLastGroup;
+
+                  {/* Заголовки колонок */}
+                  {overviewColumns.map((column, columnIndex) => {
+                    const isLastColumn = columnIndex === overviewColumns.length - 1;
+                    const isSchedule = column.type === "schedule";
+                    const isBodymind = isSchedule && column.category === "bodymind";
+                    const isPilates = isSchedule && column.category === "pilates";
+                    const isCowork = column.type === "cowork";
+                    const isKids = column.type === "kids";
                   
                   return (
                     <div
-                      key={`${group.key}-${column.key}`}
-                      className={`schedule-load-column-header ${!hasRightBorder ? "schedule-load-column-header--no-right-border" : ""}`}
-                      style={{ gridColumn: startColumn + columnIndex }}
-                    >
+                        key={column.key}
+                        className={`schedule-load-column-header ${isLastColumn ? "schedule-load-column-header--no-right-border" : ""}`}
+                        style={{
+                          gridColumn: 2 + columnIndex,
+                          background: isBodymind ? "rgba(99, 102, 241, 0.06)" : isPilates ? "rgba(16, 185, 129, 0.06)" : undefined,
+                          color: "var(--foreground)",
+                        }}
+                      >
+                        {isSchedule && "dayKey" in column ? (
                       <span>{column.label}</span>
+                        ) : (
+                          <>
+                            <span>{column.label}</span>
+                            {"capacityLabel" in column && (
                       <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>{column.capacityLabel}</span>
+                            )}
+                          </>
+                        )}
                       </div>
                   );
-                });
               })}
+
+                  {/* Ячейки времени и данных */}
               {TIME_SLOTS.map((time) => {
-                const timeIndex = TIME_SLOTS.indexOf(time as (typeof TIME_SLOTS)[number]);
                 return (
                   <Fragment key={time}>
                     <div className="schedule-load-time-cell" style={{ gridColumn: 1 }}>
                       {time}
                 </div>
-                    {overviewGroupsWithState.flatMap((group, groupIndex) => {
-                      // Вычисляем начальную колонку для первой колонки группы
-                      let startColumn = 2;
-                      for (let i = 0; i < groupIndex; i++) {
-                        startColumn += overviewGroupsWithState[i].columns.length;
-                      }
-                      return group.columns.map((column, columnIndex) => {
-                        const overviewCellKey = makeOverviewSlotKey(group.key, column.key, time);
-                        const slotFromFilter =
-                          overviewSlotsMap[group.key]?.[column.key]?.[
-                            time as (typeof TIME_SLOTS)[number]
-                          ] ?? null;
-                        const columnSlots = column.slots;
+                    {overviewColumns.map((column, columnIndex) => {
+                        const cellColumn = 2 + columnIndex;
+                        const isSchedule = column.type === "schedule";
+                        const isBodymind = isSchedule && column.category === "bodymind";
+                        const isPilates = isSchedule && column.category === "pilates";
+                        const isCowork = column.type === "cowork";
+                        const isKids = column.type === "kids";
                         
-                        // Проверяем, есть ли draftEvent для этой колонки
-                        const isDraftEventForThisColumn = draftEvent && 
-                          selectedSlot?.groupKey === group.key && 
-                          selectedSlot?.columnKey === column.key;
-                        
-                        // Используем draftEvent, если он есть для этой колонки, иначе используем eventAtTime из columnSlots
-                        const originalEventAtTime = columnSlots[time as (typeof TIME_SLOTS)[number]];
-                        const eventAtTime = isDraftEventForThisColumn && draftEvent && draftEvent.time === time
-                          ? draftEvent
-                          : originalEventAtTime;
-                        
-                        // Создаем объединенный список событий для проверки, включая draftEvent
-                        const allEvents = Object.values(columnSlots).filter(e => e !== null) as CalendarEvent[];
-                        if (isDraftEventForThisColumn && draftEvent) {
-                          // Заменяем оригинальное событие на draftEvent, если оно существует
-                          const originalEventIndex = allEvents.findIndex(
-                            e => e && e.time === draftEvent.time
-                          );
-                          if (originalEventIndex !== -1) {
-                            allEvents[originalEventIndex] = draftEvent;
-                          } else {
-                            allEvents.push(draftEvent);
+                        // Для расписания - получаем данные
+                        // Используем дату для соответствующего дня недели
+                        let scheduleData: ScheduleGroup | ScheduleTrainer | null = null;
+                        if (isSchedule && "dayKey" in column) {
+                          const dayKey = column.dayKey;
+                          // Получаем дату для соответствующего дня недели в формате YYYY-MM-DD
+                          const dateForDay = getDateStringForDayKey(dayKey, weekStart);
+                          
+                          if (isBodymind) {
+                            // Ищем напрямую в scheduleGroups по dayKey, time, категории и дате
+                            scheduleData = scheduleGroups.find(
+                              g => g.dayKey === dayKey && 
+                                   g.time === time && 
+                                   g.category === "bodymind" &&
+                                   g.date === dateForDay
+                            ) || null;
+                          } else if (isPilates) {
+                            // Ищем напрямую в scheduleTrainers по dayKey, time, категории и дате
+                            // Нормализуем дату для сравнения (убираем возможные различия в формате)
+                            const normalizedDateForDay = dateForDay.trim();
+                            
+                            // Отладочная информация - выводим только для первой ячейки, чтобы не засорять консоль
+                            if (time === TIME_SLOTS[0] && columnIndex === 0) {
+                              const allPilates = scheduleTrainers.filter(t => t.category === "pilates");
+                            }
+                            
+                            scheduleData = scheduleTrainers.find(
+                              t => {
+                                const normalizedTrainerDate = (t.date || "").trim();
+                                const matches = t.dayKey === dayKey && 
+                                   t.time === time && 
+                                   t.category === "pilates" &&
+                                   normalizedTrainerDate === normalizedDateForDay;
+                                return matches;
+                              }
+                            ) || null;
+                            
                           }
                         }
                         
-                        // Проверяем, продолжается ли событие в этом времени
-                        // Событие продолжается только если время строго между началом и концом (не включая начало и конец)
-                        const continuingEvent = allEvents.find(
-                          (event) => {
-                            if (!event || event.time === time) return false;
-                            if (!event.endTime) return false; // События без endTime не продолжаются
-                            
-                            const startIndex = TIME_SLOTS.indexOf(event.time as (typeof TIME_SLOTS)[number]);
-                            const endIndex = TIME_SLOTS.indexOf(event.endTime as (typeof TIME_SLOTS)[number]);
-                            
-                            if (timeIndex === -1 || startIndex === -1 || endIndex === -1) return false;
-                            
-                            // Время должно быть строго после начала и строго до конца (не включая конец)
-                            // Например, если событие 9:00-10:00:
-                            // - В 9:00: timeIndex = startIndex, не продолжение (это начало)
-                            // - В 10:00: timeIndex = endIndex, не продолжение (это конец)
-                            // - В 11:00: timeIndex > endIndex, не продолжение (уже после конца)
-                            // Продолжение только если: startIndex < timeIndex < endIndex
-                            return timeIndex > startIndex && timeIndex < endIndex;
-                          },
-                        );
-                        
-                        // Проверяем, находится ли текущее время в диапазоне события, которое начинается раньше или в том же времени
-                        // Если да, то это время уже занято событием через span, и не нужно рендерить пустую ячейку
-                        const isTimeOccupiedByEarlierEvent = allEvents.some(
-                          (event) => {
-                            if (!event || !event.endTime) return false;
-                            
-                            const startIndex = TIME_SLOTS.indexOf(event.time as (typeof TIME_SLOTS)[number]);
-                            const endIndex = TIME_SLOTS.indexOf(event.endTime as (typeof TIME_SLOTS)[number]);
-                            
-                            if (timeIndex === -1 || startIndex === -1 || endIndex === -1) return false;
-                            
-                            // Время занято, если оно находится в диапазоне события (включая начало и конец)
-                            // Например, если событие 9:00-10:00:
-                            // - В 9:00: timeIndex = startIndex, занято (это начало) - но это начало, так что не скрываем пустую ячейку
-                            // - В 10:00: timeIndex = endIndex, занято (это конец) - скрываем пустую ячейку
-                            // - В 11:00: timeIndex > endIndex, не занято (уже после конца)
-                            // Если это начало события (timeIndex === startIndex), не скрываем пустую ячейку (она будет событием)
-                            // Если это продолжение или конец (timeIndex > startIndex && timeIndex <= endIndex), скрываем пустую ячейку
-                            return timeIndex > startIndex && timeIndex <= endIndex;
-                          },
-                        );
-                        
-                        const isEventStart = !!eventAtTime;
-                        const isEventContinue = !!continuingEvent;
-                        const passesFilters =
-                          !searchQuery && statusFilter === "all" ? true : Boolean(slotFromFilter);
-
-                        const cellColumn = startColumn + columnIndex;
-
-                      // Если событие продолжается, но не начинается здесь, не рендерим ячейку
-                        if (isEventContinue && !isEventStart) {
-                          return null;
+                        // Для коворкинга и Kids - получаем данные из overviewSlotsState
+                        let coworkEvent: CalendarEvent | null = null;
+                        let isInEventRange = false;
+                        if (isCowork || isKids) {
+                          const overviewCellKey = makeOverviewSlotKey(isCowork ? "cowork" : "kids", column.key, time);
+                          coworkEvent = overviewSlotsState[overviewCellKey] || null;
+                          
+                          // Проверяем, не находимся ли мы внутри диапазона другого события
+                          if (!coworkEvent) {
+                            // Проверяем все временные слоты в этой колонке, чтобы найти событие, которое включает текущее время
+                            for (const checkTime of TIME_SLOTS) {
+                              if (checkTime === time) continue; // Пропускаем текущее время
+                              const checkKey = makeOverviewSlotKey(isCowork ? "cowork" : "kids", column.key, checkTime);
+                              const checkEvent = overviewSlotsState[checkKey];
+                              // Проверяем только события, которые начинаются в checkTime (начало события)
+                              if (checkEvent && checkEvent.time === checkTime && isTimeInEventRange(time, checkEvent)) {
+                                isInEventRange = true;
+                                break;
+                              }
+                            }
+                          }
                         }
-
-                        if (eventAtTime && isEventStart && passesFilters) {
-                          const span = getTimeSlotSpan(eventAtTime.time, eventAtTime.endTime);
-                          const timeRange = eventAtTime.endTime
-                            ? `${eventAtTime.time}–${eventAtTime.endTime}`
-                            : eventAtTime.time;
-                          const peopleCount = eventAtTime.peopleCount ?? 1;
+                        
+                        // Проверяем фильтры для коворкинга и Kids
+                        // В "Обзоре" показываем события, если они есть
+                        let passesFilters = true;
+                        if (isCowork || isKids) {
+                          if (!coworkEvent) {
+                            passesFilters = false;
+                          } else {
+                            // Проверяем поиск
+                            if (searchQuery) {
+                              const query = searchQuery.toLowerCase();
+                              const matchesSearch = 
+                                coworkEvent.clients?.some(c => c.toLowerCase().includes(query)) ||
+                                coworkEvent.title.toLowerCase().includes(query);
+                              if (!matchesSearch) {
+                                passesFilters = false;
+                              }
+                            }
+                            // Проверяем фильтр статуса
+                            if (statusFilter !== "all" && statusFilter !== coworkEvent.status) {
+                              passesFilters = false;
+                            }
+                          }
+                        }
+                        
+                        // Для расписания - отображаем данные из scheduleData
+                        if (scheduleData && isSchedule && passesFilters) {
+                          const bodymindColor = "#6366F1";
+                          const pilatesColor = "#10B981";
+                          const eventColor = isBodymind ? bodymindColor : pilatesColor;
+                          const dayKey = "dayKey" in column ? column.dayKey : "mon";
+                          
+                          return (
+                            <div
+                              key={`${column.key}-${time}`}
+                              className="schedule-load-cell schedule-load-cell--event"
+                              draggable={isBodymind}
+                              onClick={() => {
+                                if (isBodymind) {
+                                  const group = scheduleData as ScheduleGroup;
+                                  setSelectedBodymindGroup(group);
+                                  setIsEditingBodymind(false);
+                                  setDrawerMode("bodymind");
+                                  setIsDrawerOpen(true);
+                                } else {
+                                  const trainerData = scheduleData as ScheduleTrainer;
+                                  setSelectedPilatesTrainer(trainerData);
+                                  setDrawerMode("pilates");
+                                  setIsDrawerOpen(true);
+                                }
+                              }}
+                              onDragStart={isBodymind ? (e) => {
+                                e.dataTransfer.setData(
+                                  "application/json",
+                                  JSON.stringify({
+                                    type: "bodymind",
+                                    data: scheduleData,
+                                    dayKey: dayKey,
+                                    time: time,
+                                  }),
+                                );
+                                e.dataTransfer.effectAllowed = "move";
+                                e.currentTarget.style.opacity = "0.5";
+                              } : undefined}
+                              onDragEnd={isBodymind ? (e) => {
+                                e.currentTarget.style.opacity = "1";
+                              } : undefined}
+                              style={{
+                                gridColumn: cellColumn,
+                                background: eventColor + "15",
+                                borderColor: eventColor + "60",
+                                cursor: isBodymind ? "move" : "pointer",
+                              }}
+                            >
+                              <div className="schedule-load-event-content" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: "100%", justifyContent: "space-between", gap: "0.25rem" }}>
+                                <div style={{ flex: "0 1 auto", display: "flex", flexDirection: "column", gap: "0.25rem", overflow: "hidden" }}>
+                                  {isBodymind ? (
+                                    <>
+                                      <div className="schedule-load-event-name" style={{ fontSize: "0.75rem", lineHeight: "1.2", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                                        {(scheduleData as ScheduleGroup).name}
+                                      </div>
+                                      <div className="schedule-load-event-meta" style={{ marginTop: "0", gap: "0.5rem", fontSize: "0.625rem" }}>
+                                        <div className="schedule-load-event-meta-item">
+                                          <Clock className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
+                                          <span>{time}</span>
+                                        </div>
+                                        <div className="schedule-load-event-meta-item">
+                                          <User className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
+                                          <span>{(scheduleData as ScheduleGroup).trainer}</span>
+                                        </div>
+                                        <div className="schedule-load-event-meta-item">
+                                          <Users className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
+                                          <span>{(scheduleData as ScheduleGroup).capacity}</span>
+                                        </div>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="schedule-load-event-name" style={{ fontSize: "0.75rem", lineHeight: "1.2" }}>
+                                        {(scheduleData as ScheduleTrainer).trainer}
+                                      </div>
+                                      <div className="schedule-load-event-meta" style={{ marginTop: "0", gap: "0.5rem", fontSize: "0.625rem" }}>
+                                        <div className="schedule-load-event-meta-item">
+                                          <Clock className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
+                                          <span>{time}</span>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                                <div style={{ 
+                                  fontSize: "0.5625rem", 
+                                  color: eventColor, 
+                                  fontWeight: 600, 
+                                  marginTop: "auto", 
+                                  paddingTop: "0.25rem",
+                                  textTransform: "uppercase",
+                                  flexShrink: 0,
+                                  lineHeight: "1.1",
+                                  whiteSpace: "nowrap"
+                                }}>
+                                  {isBodymind ? "Body Mind" : "Pilates Reformer"}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }
+                        
+                        // Для коворкинга и Kids - отображаем события
+                        // Рендерим карточку только в первой ячейке события
+                        if ((isCowork || isKids) && coworkEvent && passesFilters && time === coworkEvent.time) {
+                          const span = getTimeSlotSpan(coworkEvent.time, coworkEvent.endTime);
+                          const timeRange = coworkEvent.endTime
+                            ? `${coworkEvent.time}–${coworkEvent.endTime}`
+                            : coworkEvent.time;
                           const clientName =
-                            eventAtTime.clients && eventAtTime.clients.length > 0
-                              ? eventAtTime.clients[0]
-                              : eventAtTime.title;
+                            coworkEvent.clients && coworkEvent.clients.length > 0
+                              ? coworkEvent.clients[0]
+                              : coworkEvent.title;
+
+                          // Вычисляем количество часов
+                          const calculateHours = (startTime: string, endTime?: string): number => {
+                            if (!endTime) return 1; // Если нет endTime, считаем 1 час
+                            
+                            const [startHours, startMinutes] = startTime.split(':').map(Number);
+                            const [endHours, endMinutes] = endTime.split(':').map(Number);
+                            
+                            const startTotalMinutes = startHours * 60 + startMinutes;
+                            const endTotalMinutes = endHours * 60 + endMinutes;
+                            
+                            const diffMinutes = endTotalMinutes - startTotalMinutes;
+                            const hours = diffMinutes / 60;
+                            
+                            return Math.round(hours * 10) / 10; // Округляем до 1 знака после запятой
+                          };
+
+                          const hoursCount = calculateHours(coworkEvent.time, coworkEvent.endTime);
 
                           return (
                             <div
-                              key={overviewCellKey}
-                            className="schedule-load-cell schedule-load-cell--event"
+                              key={`${column.key}-${time}`}
                             draggable
-                            onClick={() => {
-                              setSelectedSlot({
-                                groupKey: group.key,
-                                groupLabel: group.label,
+                            onClick={async () => {
+                              const slotInfo: SelectedSlotInfo = {
+                                  groupKey: isCowork ? "cowork" : "kids",
+                                  groupLabel: isCowork ? "Коворкинг" : "Eywa Kids",
                                 columnKey: column.key,
                                 columnLabel: column.label,
-                                time: eventAtTime.time,
-                              });
-                              setSelectedEvent(eventAtTime);
-                              setDraftEvent(eventAtTime);
+                                  time: coworkEvent.time,
+                              };
+                              setSelectedSlot(slotInfo);
+                                setSelectedEvent(coworkEvent);
+                                setDraftEvent(coworkEvent);
+                              
+                              // Загружаем данные об услуге для правильного отображения при оплате
+                              try {
+                                if (isCowork) {
+                                  const places = await fetchCoworkingPlaces();
+                                  const nameMap: Record<string, string> = {
+                                    "capsule-1": "Капсула 1",
+                                    "capsule-2": "Капсула 2",
+                                    "capsule-3": "Капсула 3",
+                                    "capsule-4": "Капсула 4",
+                                    "capsule-5": "Капсула 5",
+                                    "ivent-zone": "ИвентЗона",
+                                  };
+                                  const place = places.find(p => 
+                                    p.name === nameMap[column.key] || 
+                                    p.name === column.label
+                                  );
+                                  if (place) {
+                                    setSelectedCoworkingPlace(place);
+                                    // Устанавливаем цену на основе длительности
+                                    const hours = coworkEvent.endTime 
+                                      ? getTimeSlotSpan(coworkEvent.time, coworkEvent.endTime)
+                                      : 1;
+                                    if (hours === 1 && place.price_1h) {
+                                      setSelectedServicePrice(place.price_1h);
+                                      setPaymentTotal(place.price_1h.toLocaleString("ru-RU").replace(/,/g, " "));
+                                    } else if (hours === 3 && place.price_3h) {
+                                      setSelectedServicePrice(place.price_3h);
+                                      setPaymentTotal(place.price_3h.toLocaleString("ru-RU").replace(/,/g, " "));
+                                    } else if (hours >= 8 && place.price_day) {
+                                      setSelectedServicePrice(place.price_day);
+                                      setPaymentTotal(place.price_day.toLocaleString("ru-RU").replace(/,/g, " "));
+                                    } else if (place.price_1h) {
+                                      setSelectedServicePrice(place.price_1h * hours);
+                                      setPaymentTotal((place.price_1h * hours).toLocaleString("ru-RU").replace(/,/g, " "));
+                                    }
+                                  }
+                                } else if (isKids) {
+                                  const services = await fetchKidsServices();
+                                  const service = services.find(s => s.name === column.label) || services[0];
+                                  if (service) {
+                                    setSelectedKidsService(service);
+                                    setSelectedServicePrice(service.price);
+                                    setPaymentTotal(service.price.toLocaleString("ru-RU").replace(/,/g, " "));
+                                  }
+                                }
+                              } catch (error) {
+                                console.error("Failed to load service data:", error);
+                              }
+                              
                               setDrawerMode("event");
                               setIsDrawerOpen(true);
                             }}
@@ -1249,14 +2525,13 @@ export default function ScheduleLoadPage() {
                               e.dataTransfer.setData(
                                 "application/json",
                                 JSON.stringify({
-                                  event: eventAtTime,
-                                  groupKey: group.key,
+                                    event: coworkEvent,
+                                    groupKey: isCowork ? "cowork" : "kids",
                                   columnKey: column.key,
                                   time: time,
                                 }),
                               );
                               e.dataTransfer.effectAllowed = "move";
-                              // Добавляем визуальную обратную связь
                               e.currentTarget.style.opacity = "0.5";
                             }}
                             onDragEnd={(e) => {
@@ -1264,27 +2539,45 @@ export default function ScheduleLoadPage() {
                             }}
                               style={{
                               gridColumn: cellColumn,
-                              gridRow: `span ${span}`,
-                              background: eventAtTime.color + "15",
-                              borderColor: eventAtTime.color + "60",
+                                gridRow: span > 1 ? `span ${span}` : undefined,
+                                background: coworkEvent.color + "25",
+                                borderTop: `1px solid ${coworkEvent.color}80`,
+                                borderBottom: `1px solid ${coworkEvent.color}80`,
+                                borderLeft: `1px solid ${coworkEvent.color}80`,
+                                borderRight: `1px solid ${coworkEvent.color}80`,
+                                cursor: "move",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "flex-start",
+                                justifyContent: "flex-start",
+                                padding: "0.625rem 0.75rem",
+                                borderRadius: span > 1 ? "20px" : "10px",
+                                borderTopLeftRadius: span > 1 ? "20px" : "10px",
+                                borderTopRightRadius: span > 1 ? "20px" : "10px",
+                                borderBottomLeftRadius: span > 1 ? "20px" : "10px",
+                                borderBottomRightRadius: span > 1 ? "20px" : "10px",
+                                height: span > 1 ? "100%" : "auto",
+                                margin: span > 1 ? "4px" : "0",
+                                position: "relative",
+                                zIndex: span > 1 ? 10 : 1,
+                                boxSizing: "border-box",
+                                userSelect: "none",
+                                overflow: "hidden",
                               }}
                             >
-                              <div
-                              className="schedule-load-event-content"
-                              onDragStart={(e) => e.stopPropagation()}
-                              draggable={false}
-                            >
-                              <div className="schedule-load-event-name">
+                              <div className="schedule-load-event-content" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: "100%", justifyContent: "space-between", gap: "0.25rem", width: "100%" }}>
+                                <div style={{ flex: "0 1 auto", display: "flex", flexDirection: "column", gap: "0.25rem", overflow: "hidden" }}>
+                                  <div className="schedule-load-event-name" style={{ fontSize: "0.75rem", lineHeight: "1.2", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
                                 {clientName}
                               </div>
-                              <div className="schedule-load-event-meta">
+                                  <div className="schedule-load-event-meta" style={{ marginTop: "0", gap: "0.5rem", fontSize: "0.625rem" }}>
                                 <div className="schedule-load-event-meta-item">
-                                  <Clock className="schedule-load-event-icon" />
+                                      <Clock className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
                                         <span>{timeRange}</span>
                                       </div>
                                 <div className="schedule-load-event-meta-item">
-                                  <Users className="schedule-load-event-icon" />
-                                        <span>{peopleCount} чел.</span>
+                                      <span>{hoursCount} {hoursCount === 1 ? "час" : hoursCount < 5 ? "часа" : "часов"}</span>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -1292,146 +2585,318 @@ export default function ScheduleLoadPage() {
                           );
                         }
 
-                      // Если время занято событием, которое начинается раньше (через span), не рендерим пустую ячейку
-                      if (isTimeOccupiedByEarlierEvent) {
+                        // Пустая ячейка (не рендерим, если мы внутри диапазона события)
+                        if (isInEventRange) {
                         return null;
                       }
 
-                      // Проверяем, есть ли событие в этой колонке, которое занимает эту строку
-                      const hasEventInColumn = allEvents.some(
-                        (event) => {
-                          if (!event || !event.endTime) return false;
-                          const startIndex = TIME_SLOTS.indexOf(event.time as (typeof TIME_SLOTS)[number]);
-                          const endIndex = TIME_SLOTS.indexOf(event.endTime as (typeof TIME_SLOTS)[number]);
-                          if (timeIndex === -1 || startIndex === -1 || endIndex === -1) return false;
-                          // Если текущее время находится в диапазоне события (но не является началом)
-                          return timeIndex > startIndex && timeIndex <= endIndex;
-                        },
-                      );
-
-                      // Не принимаем drop, если ячейка находится за событием
-                      const canAcceptDrop = !hasEventInColumn && !isTimeOccupiedByEarlierEvent;
-
                         return (
                           <div
-                            key={overviewCellKey}
+                            key={`${column.key}-${time}`}
                             className="schedule-load-cell schedule-load-cell--empty"
-                            style={{ gridColumn: cellColumn }}
+                            style={{ 
+                              gridColumn: cellColumn,
+                              cursor: "pointer",
+                            }}
+                            onClick={() => {
+                              if (isSchedule) {
+                                // Для расписания - открываем модал создания
+                                if (isBodymind || isPilates) {
+                                  const dayKey = "dayKey" in column ? column.dayKey : "mon";
+                                  // Вычисляем конкретную дату для выбранного дня
+                                  const dayIndex = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].indexOf(dayKey);
+                                  const selectedDate = dayIndex >= 0 
+                                    ? getDateStringForDayKey(dayKey, weekStart)
+                                    : "";
+                                  
+                                  setSelectedScheduleCategory(isBodymind ? "bodymind" : "pilates");
+                                  setSelectedScheduleDayKey(dayKey);
+                                  setSelectedScheduleDate(selectedDate); // Сохраняем конкретную дату
+                                  setSelectedScheduleTime(time);
+                                  setDrawerMode("create-schedule");
+                                  setIsDrawerOpen(true);
+                                }
+                              } else if (isCowork || isKids) {
+                                // Для коворкинга и Kids - открываем модал создания
+                                handleOpenCreateDrawer({
+                                  groupKey: isCowork ? "cowork" : "kids",
+                                  groupLabel: isCowork ? "Коворкинг" : "Eywa Kids",
+                                  columnKey: column.key,
+                                  columnLabel: column.label,
+                                  time,
+                                });
+                              }
+                            }}
                           onDragOver={(e) => {
-                            if (!canAcceptDrop) return;
                             e.preventDefault();
+                              e.stopPropagation();
+                              const hasData = e.dataTransfer.types.includes("application/json");
+                              if (hasData) {
                             e.dataTransfer.dropEffect = "move";
                             e.currentTarget.style.background = "var(--muted)";
+                              } else {
+                                e.dataTransfer.dropEffect = "none";
+                              }
                           }}
                           onDragLeave={(e) => {
-                            if (!canAcceptDrop) return;
                             e.currentTarget.style.background = "var(--panel)";
                           }}
-                          onDrop={(e) => {
-                            if (!canAcceptDrop) return;
+                          onDrop={async (e) => {
                             e.preventDefault();
+                              e.stopPropagation();
                             e.currentTarget.style.background = "var(--panel)";
-                            try {
-                              const data = JSON.parse(e.dataTransfer.getData("application/json"));
-                              const { event, groupKey: sourceGroupKey, columnKey: sourceColumnKey, time: sourceTime } = data;
                               
-                              if (!event) return;
-                              
-                              // Создаем ключи для старого и нового места
-                              const oldKey = makeOverviewSlotKey(sourceGroupKey, sourceColumnKey, sourceTime);
-                              const newKey = makeOverviewSlotKey(group.key, column.key, time);
-                              
-                              // Если событие перемещается в то же место, ничего не делаем
-                              if (oldKey === newKey) return;
-                              
-                              // Проверяем, не занято ли новое место
-                              const targetSlot = overviewSlotsState[newKey];
-                              if (targetSlot) {
-                                // Место занято, не перемещаем
+                              try {
+                                const dragData = JSON.parse(e.dataTransfer.getData("application/json"));
+                                
+                                if (dragData.event) {
+                                  // Перемещение события коворкинга/Kids
+                                  const oldKey = makeOverviewSlotKey(dragData.groupKey, dragData.columnKey, dragData.time);
+                                  const newKey = makeOverviewSlotKey(isCowork ? "cowork" : "kids", column.key, time);
+                                  
+                                  if (oldKey !== newKey) {
+                                    // Вычисляем новый диапазон события
+                                    let newEndTime: (typeof TIME_SLOTS)[number] | undefined = undefined;
+                                    if (dragData.event.endTime) {
+                                      const oldStartIndex = TIME_SLOTS.indexOf(dragData.event.time);
+                                      const oldEndIndex = TIME_SLOTS.indexOf(dragData.event.endTime);
+                                      const duration = oldEndIndex - oldStartIndex;
+                                      const newStartIndex = TIME_SLOTS.indexOf(time);
+                                      const newEndIndex = newStartIndex + duration;
+                                      if (newEndIndex >= 0 && newEndIndex < TIME_SLOTS.length) {
+                                        newEndTime = TIME_SLOTS[newEndIndex];
+                                      }
+                                    }
+                                    
+                                    // Проверяем, не занят ли новый диапазон другим событием
+                                    const newStartIndex = TIME_SLOTS.indexOf(time);
+                                    const newEndIndex = newEndTime ? TIME_SLOTS.indexOf(newEndTime) : newStartIndex;
+                                    let hasConflict = false;
+                                    let conflictingEvent: CalendarEvent | null = null;
+                                    
+                                    for (let i = newStartIndex; i <= newEndIndex; i++) {
+                                      const checkTime = TIME_SLOTS[i];
+                                      const checkKey = makeOverviewSlotKey(isCowork ? "cowork" : "kids", column.key, checkTime);
+                                      const existingEvent = overviewSlotsState[checkKey];
+                                      
+                                      // Если в ячейке есть событие и это не наше событие
+                                      if (existingEvent && existingEvent.id !== dragData.event.id) {
+                                        hasConflict = true;
+                                        conflictingEvent = existingEvent;
+                                        break;
+                                      }
+                                      
+                                      // Также проверяем, не начинается ли другое событие раньше и не заканчивается ли в этом диапазоне
+                                      for (const checkTime2 of TIME_SLOTS) {
+                                        if (checkTime2 === checkTime) continue;
+                                        const checkKey2 = makeOverviewSlotKey(isCowork ? "cowork" : "kids", column.key, checkTime2);
+                                        const checkEvent2 = overviewSlotsState[checkKey2];
+                                        if (checkEvent2 && checkEvent2.id !== dragData.event.id && checkEvent2.time === checkTime2) {
+                                          if (isTimeInEventRange(checkTime, checkEvent2)) {
+                                            hasConflict = true;
+                                            conflictingEvent = checkEvent2;
+                                            break;
+                                          }
+                                        }
+                                      }
+                                      if (hasConflict) break;
+                                    }
+                                    
+                                    if (hasConflict && conflictingEvent) {
+                                      // Показываем предупреждение
+                                      const eventName = conflictingEvent.clients && conflictingEvent.clients.length > 0
+                                        ? conflictingEvent.clients[0]
+                                        : conflictingEvent.title;
+                                      toast.warning({
+                                        text: `Нельзя поставить бронь: в этом времени уже есть бронь "${eventName}". Сократите текущую бронь, чтобы освободить место.`,
+                                      });
                                 return;
                               }
                               
-                              // Обновляем событие с новым временем
+                                    // Обновляем время события на новое время
                               const updatedEvent: CalendarEvent = {
-                                ...event,
+                                      ...dragData.event,
                                 time: time as (typeof TIME_SLOTS)[number],
-                                // Если было endTime, пересчитываем его относительно нового времени
-                                endTime: event.endTime 
-                                  ? (() => {
-                                      const oldStartIndex = TIME_SLOTS.indexOf(sourceTime as (typeof TIME_SLOTS)[number]);
-                                      const oldEndIndex = TIME_SLOTS.indexOf(event.endTime as (typeof TIME_SLOTS)[number]);
-                                      const duration = oldEndIndex - oldStartIndex;
-                                      const newStartIndex = TIME_SLOTS.indexOf(time as (typeof TIME_SLOTS)[number]);
-                                      const newEndIndex = newStartIndex + duration;
-                                      return TIME_SLOTS[newEndIndex] as string;
-                                    })()
-                                  : undefined,
-                              };
-                              
-                              // Обновляем состояние: удаляем из старого места, добавляем в новое
+                                    };
+                                    
+                                    // Если есть endTime, пересчитываем его относительно нового времени
+                                    if (newEndTime) {
+                                      updatedEvent.endTime = newEndTime;
+                                    } else if (dragData.event.endTime) {
+                                      // Если новый endTime выходит за пределы, убираем его
+                                      delete updatedEvent.endTime;
+                                    }
+                                    
+                                    // Обновляем бэкенд через API
+                                    if (dragData.event.id) {
+                                      try {
+                                        // Определяем новую дату (для обзора всегда сегодня)
+                                        const today = new Date();
+                                        const bookingDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                                        
+                                        // Определяем новую капсулу (если изменилась)
+                                        let newCapsuleId: string | null = null;
+                                        let newCapsuleName: string | null = null;
+                                        if (isCowork && column.key !== dragData.columnKey) {
+                                          // Находим капсулу по новому columnKey
+                                          const places = coworkingPlaces.length > 0 ? coworkingPlaces : await fetchCoworkingPlaces();
+                                          const nameMap: Record<string, string> = {
+                                            "capsule-1": "Капсула 1",
+                                            "capsule-2": "Капсула 2",
+                                            "capsule-3": "Капсула 3",
+                                            "capsule-4": "Капсула 4",
+                                            "capsule-5": "Капсула 5",
+                                            "ivent-zone": "ИвентЗона",
+                                          };
+                                          const place = places.find(p => p.name === nameMap[column.key] || p.name === column.label);
+                                          if (place) {
+                                            newCapsuleId = place.id;
+                                            newCapsuleName = place.name;
+                                          }
+                                        }
+                                        
+                                        // Обновляем запись через API
+                                        await updateScheduleBooking(dragData.event.id, {
+                                          booking_date: bookingDate,
+                                          booking_time: time,
+                                          capsule_id: newCapsuleId || undefined,
+                                          capsule_name: newCapsuleName || undefined,
+                                        });
+                                        
+                                        // Перезагружаем данные из API
+                                        await loadBookingsFromApi(true);
+                                      } catch (error) {
+                                        console.error("Failed to update booking via API:", error);
+                                        toast.error({ text: "Не удалось обновить запись в базе данных" });
+                                        return; // Не обновляем локальное состояние, если API не обновился
+                                      }
+                                    }
+                                    
                               setOverviewSlotsState((prev) => {
                                 const updated = { ...prev };
-                                // Удаляем из старого места (и все связанные слоты, если событие растягивается)
-                                if (event.endTime) {
-                                  const oldStartIndex = TIME_SLOTS.indexOf(sourceTime as (typeof TIME_SLOTS)[number]);
-                                  const oldEndIndex = TIME_SLOTS.indexOf(event.endTime as (typeof TIME_SLOTS)[number]);
+                                      
+                                      // Очищаем все старые ячейки в диапазоне
+                                      if (dragData.event.endTime) {
+                                        const oldStartIndex = TIME_SLOTS.indexOf(dragData.event.time);
+                                        const oldEndIndex = TIME_SLOTS.indexOf(dragData.event.endTime);
                                   for (let i = oldStartIndex; i <= oldEndIndex; i++) {
-                                    const slotKey = makeOverviewSlotKey(sourceGroupKey, sourceColumnKey, TIME_SLOTS[i] as string);
-                                    if (i === oldStartIndex) {
-                                      delete updated[slotKey];
-                                    } else {
-                                      delete updated[slotKey];
-                                    }
+                                          const oldRangeKey = makeOverviewSlotKey(dragData.groupKey, dragData.columnKey, TIME_SLOTS[i]);
+                                          updated[oldRangeKey] = null;
                                   }
                                 } else {
-                                  delete updated[oldKey];
+                                        updated[oldKey] = null;
                                 }
                                 
-                                // Добавляем в новое место
+                                      // Сохраняем событие в новой ячейке
                                 updated[newKey] = updatedEvent;
                                 
-                                // Если событие растягивается, заполняем промежуточные слоты
+                                      // Очищаем все ячейки в новом диапазоне (если есть endTime)
                                 if (updatedEvent.endTime) {
-                                  const newStartIndex = TIME_SLOTS.indexOf(time as (typeof TIME_SLOTS)[number]);
-                                  const newEndIndex = TIME_SLOTS.indexOf(updatedEvent.endTime as (typeof TIME_SLOTS)[number]);
+                                        const newStartIndex = TIME_SLOTS.indexOf(time);
+                                        const newEndIndex = TIME_SLOTS.indexOf(updatedEvent.endTime);
                                   for (let i = newStartIndex + 1; i <= newEndIndex; i++) {
-                                    const slotKey = makeOverviewSlotKey(group.key, column.key, TIME_SLOTS[i] as string);
-                                    // Промежуточные слоты остаются пустыми (они обрабатываются логикой продолжения)
+                                          const newRangeKey = makeOverviewSlotKey(isCowork ? "cowork" : "kids", column.key, TIME_SLOTS[i]);
+                                          updated[newRangeKey] = null;
                                   }
                                 }
                                 
-                                // Сохраняем в localStorage
+                                      try {
+                                        if (typeof window !== "undefined") {
                                 localStorage.setItem("overviewSlotsState", JSON.stringify(updated));
-                                
+                                        }
+                                      } catch (error) {
+                                        console.error("Failed to save overviewSlotsState:", error);
+                                      }
                                 return updated;
                               });
-                            } catch (err) {
-                              console.error("Failed to parse drop data:", err);
-                            }
-                          }}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleOpenCreateDrawer({
-                              groupKey: group.key,
-                              groupLabel: group.label,
-                              columnKey: column.key,
-                              columnLabel: column.label,
-                              time,
-                            });
+                                  }
+                                } else if (dragData.type === "bodymind" && isBodymind) {
+                                  // Перемещение группы Body Mind
+                                  const dayKey = "dayKey" in column ? column.dayKey : "mon";
+                                  
+                                  // Проверяем, не занято ли место
+                                  const isOccupied = scheduleGroups.some(g => 
+                                      g.dayKey === dayKey && 
+                                      g.time === time && 
+                                      !(g.name === dragData.data.name && g.trainer === dragData.data.trainer && g.dayKey === dragData.dayKey && g.time === dragData.time)
+                                    );
+                                  
+                                  if (isOccupied) {
+                                    toast.warning({ text: "Это время уже занято другой группой" });
+                                    return;
+                                  }
+                                  
+                                  // Находим bookingId из dragData.data
+                                  const groupData = dragData.data as ScheduleGroup;
+                                  if (groupData.bookingId) {
+                                    try {
+                                      // Определяем новую дату на основе dayKey и weekStart
+                                      const newDateString = getDateStringForDayKey(dayKey, weekStart);
+                                      
+                                      // Обновляем запись через API
+                                      await updateScheduleBooking(groupData.bookingId, {
+                                        booking_date: newDateString,
+                                        booking_time: time,
+                                      });
+                                      
+                                      // Перезагружаем данные из API
+                                      await loadBookingsFromApi(false);
+                                    } catch (error) {
+                                      console.error("Failed to update Body Mind booking via API:", error);
+                                      toast.error({ text: "Не удалось обновить запись в базе данных" });
+                                      return;
+                                    }
+                                  }
+                                  
+                                  setScheduleGroups(prev => 
+                                    prev.map(g => 
+                                      (g.name === dragData.data.name && g.trainer === dragData.data.trainer && g.dayKey === dragData.dayKey && g.time === dragData.time)
+                                        ? { ...g, dayKey: dayKey, time: time }
+                                        : g
+                                    )
+                                    );
+                                } else if (dragData.type === "pilates" && isPilates) {
+                                  // Перемещение тренера Pilates
+                                  const dayKey = "dayKey" in column ? column.dayKey : "mon";
+                                  setScheduleTrainers(prev => {
+                                    const isOccupied = prev.some(t => 
+                                      t.dayKey === dayKey && 
+                                      t.time === time && 
+                                      !(t.trainer === dragData.data.trainer && t.dayKey === dragData.dayKey && t.time === dragData.time)
+                                    );
+                                    if (isOccupied) return prev;
+                                    
+                                    return prev.map(t => 
+                                      (t.trainer === dragData.data.trainer && t.dayKey === dragData.dayKey && t.time === dragData.time)
+                                        ? { ...t, dayKey: dayKey, time: time }
+                                        : t
+                                    );
+                                  });
+                                }
+                              } catch (error) {
+                                console.error("Error parsing drag data:", error);
+                              }
                           }}
                         />
                       );
-                    });
                   })}
                   </Fragment>
                 );
               })}
-              </div>
-            </div>
-          </Card>
+                </div>
+              );
+            })()}
+          </div>
+                          </div>
         ) : (
         <Card className="space-y-4">
-          <div className="mb-4 flex items-center justify-between">
+          <div 
+            className="mb-4 flex items-center justify-between"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{ touchAction: "pan-y" }}
+          >
                 <div>
               <p className="text-xs uppercase tracking-wide mb-1" style={{ color: "var(--muted-foreground)" }}>
                     Текущая неделя
@@ -1468,36 +2933,417 @@ export default function ScheduleLoadPage() {
                 </div>
               </div>
 
-          <div className="schedule-load-calendar">
-            <FullCalendar
-              ref={calendarRef}
-              plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
-              initialView="timeGridWeek"
-              headerToolbar={false}
-              height="auto"
-              slotDuration="01:00:00"
-              slotMinTime="09:00:00"
-              slotMaxTime="22:00:00"
-              allDaySlot={false}
-              expandRows
-              selectable
-              selectMirror
-              dayMaxEvents
-              eventOverlap={false}
-              slotEventOverlap={false}
-              nowIndicator
-              events={calendarEvents}
-              eventContent={renderEventContent}
-              eventClassNames={() => "schedule-load-event"}
-              dateClick={(info) => setCurrentDate(info.date)}
-              slotLabelClassNames="schedule-load-slot-label"
-              dayHeaderClassNames="schedule-load-day-header"
-              firstDay={1}
-              locale="ru"
-              className="schedule-load-fc"
-            />
+          {/* Таблица расписания с категориями Body Mind и Pilates Reformer */}
+          <div className="p-4 overflow-x-auto" ref={scheduleContainerRef}>
+            {(() => {
+              // Вычисляем даты для дней недели
+              const getDateForDayIndex = (dayIndex: number) => {
+                const date = new Date(weekStart);
+                date.setDate(date.getDate() + dayIndex);
+                return date;
+              };
+
+              const formatDate = (date: Date) => {
+                const day = date.getDate();
+                const month = date.toLocaleDateString("ru-RU", { month: "long" });
+                return `${day} ${month}`;
+              };
+
+              // Структура данных для дней недели с датами
+              const scheduleDays = [
+                { key: "monday", label: "Понедельник", date: getDateForDayIndex(0) },
+                { key: "tuesday", label: "Вторник", date: getDateForDayIndex(1) },
+                { key: "wednesday", label: "Среда", date: getDateForDayIndex(2) },
+                { key: "thursday", label: "Четверг", date: getDateForDayIndex(3) },
+                { key: "friday", label: "Пятница", date: getDateForDayIndex(4) },
+                { key: "saturday", label: "Суббота", date: getDateForDayIndex(5) },
+                { key: "sunday", label: "Воскресенье", date: getDateForDayIndex(6) },
+              ] as const;
+
+              const scheduleColumns = scheduleDays.flatMap((day) => [
+                { key: `${day.key}-bodymind`, label: "Body Mind", dayKey: day.key, category: "bodymind" as const },
+                { key: `${day.key}-pilates`, label: "Pilates Reformer", dayKey: day.key, category: "pilates" as const },
+              ]);
+
+              // Функция для обработки перемещения группы
+              const handleGroupMove = (group: ScheduleGroup, newDayKey: string, newTime: string) => {
+                setScheduleGroups(prev => {
+                  // Проверяем, не занято ли новое место
+                  const isOccupied = prev.some(g => 
+                    g.dayKey === newDayKey && 
+                    g.time === newTime && 
+                    !(g.name === group.name && g.trainer === group.trainer && g.dayKey === group.dayKey && g.time === group.time)
+                  );
+                  if (isOccupied) return prev;
+                  
+                  return prev.map(g => 
+                    (g.name === group.name && g.trainer === group.trainer && g.dayKey === group.dayKey && g.time === group.time)
+                      ? { ...g, dayKey: newDayKey, time: newTime }
+                      : g
+                  );
+                });
+              };
+
+              // Функция для обработки перемещения тренера
+              const handleTrainerMove = (trainer: ScheduleTrainer, newDayKey: string, newTime: string) => {
+                setScheduleTrainers(prev => {
+                  // Проверяем, не занято ли новое место
+                  const isOccupied = prev.some(t => 
+                    t.dayKey === newDayKey && 
+                    t.time === newTime && 
+                    !(t.trainer === trainer.trainer && t.dayKey === trainer.dayKey && t.time === trainer.time)
+                  );
+                  if (isOccupied) return prev;
+                  
+                  return prev.map(t => 
+                    (t.trainer === trainer.trainer && t.dayKey === trainer.dayKey && t.time === trainer.time)
+                      ? { ...t, dayKey: newDayKey, time: newTime }
+                      : t
+                  );
+                });
+              };
+
+              // Создаем template для grid: 1 колонка для времени + по 2 колонки на каждый день
+              const scheduleTemplate = `80px repeat(${scheduleColumns.length}, 200px)`;
+
+              return (
+                <div className="schedule-load-overview" style={{ gridTemplateColumns: scheduleTemplate, minWidth: "fit-content" }}>
+                  {/* Пустая ячейка в первом ряду */}
+                  <div className="schedule-load-group-header" style={{ gridColumn: 1 }}></div>
+                  
+                  {/* Заголовки дней недели */}
+                  {scheduleDays.map((day, dayIndex) => {
+                    const startColumn = 2 + dayIndex * 2;
+                    // Проверяем, является ли этот день сегодняшним
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dayDate = new Date(day.date);
+                    dayDate.setHours(0, 0, 0, 0);
+                    const isToday = dayDate.getTime() === today.getTime();
+                    
+                    return (
+                      <div
+                        key={day.key}
+                        ref={isToday ? todayHeaderRef : null}
+                        className="schedule-load-group-header"
+                        style={{ 
+                          gridColumn: `${startColumn} / span 2`,
+                          background: isToday ? "rgba(99, 102, 241, 0.1)" : "transparent",
+                          borderTop: isToday ? "1px solid rgba(99, 102, 241, 0.3)" : "none",
+                          borderLeft: isToday ? "1px solid rgba(99, 102, 241, 0.3)" : "none",
+                          borderRight: dayIndex < scheduleDays.length - 1 
+                            ? (isToday ? "1px solid rgba(99, 102, 241, 0.3)" : "1px solid var(--card-border)") 
+                            : (isToday ? "1px solid rgba(99, 102, 241, 0.3)" : "none"),
+                          borderBottom: isToday ? "1px solid rgba(99, 102, 241, 0.3)" : "1px solid var(--card-border)",
+                          borderRadius: isToday ? "8px" : "0",
+                          fontWeight: isToday ? 700 : 600,
+                        }}
+                      >
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.125rem" }}>
+                          <span style={{ color: isToday ? "rgba(99, 102, 241, 1)" : "var(--foreground)" }}>
+                            {day.label}
+                            {isToday && " (Сегодня)"}
+                          </span>
+                          <span style={{ 
+                            fontSize: "0.625rem", 
+                            opacity: isToday ? 1 : 0.7, 
+                            fontWeight: isToday ? 600 : 400,
+                            color: isToday ? "rgba(99, 102, 241, 0.8)" : "var(--muted-foreground)",
+                          }}>
+                            {formatDate(day.date)}
+                          </span>
           </div>
-          </Card>
+                      </div>
+                    );
+                  })}
+
+                  {/* Заголовок времени */}
+                  <div className="schedule-load-column-header schedule-load-column-header--time" style={{ gridColumn: 1 }}>
+                    <span>Время</span>
+                  </div>
+
+                  {/* Заголовки категорий */}
+                  {scheduleColumns.map((column, columnIndex) => {
+                    const isLastColumn = columnIndex === scheduleColumns.length - 1;
+                    const isBodymind = column.category === "bodymind";
+                    const dayKey = column.dayKey;
+                    // Проверяем, является ли этот день сегодняшним
+                    const dayInfo = scheduleDays.find(d => d.key === dayKey);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const dayDate = dayInfo ? new Date(dayInfo.date) : null;
+                    if (dayDate) dayDate.setHours(0, 0, 0, 0);
+                    const isToday = dayDate && dayDate.getTime() === today.getTime();
+                    
+                    return (
+                      <div
+                        key={column.key}
+                        className={`schedule-load-column-header ${isLastColumn ? "schedule-load-column-header--no-right-border" : ""}`}
+                        style={{
+                          gridColumn: 2 + columnIndex,
+                          background: isToday 
+                            ? (isBodymind ? "rgba(99, 102, 241, 0.15)" : "rgba(16, 185, 129, 0.15)")
+                            : (isBodymind ? "rgba(99, 102, 241, 0.06)" : "rgba(16, 185, 129, 0.06)"),
+                          color: "var(--foreground)",
+                          borderTop: isToday ? "2px solid rgba(99, 102, 241, 0.5)" : "none",
+                        }}
+                      >
+                        <span>{column.label}</span>
+                      </div>
+                    );
+                  })}
+
+                  {/* Ячейки времени и расписания */}
+                  {TIME_SLOTS.map((time) => {
+                    return (
+                      <Fragment key={time}>
+                        <div className="schedule-load-time-cell" style={{ gridColumn: 1 }}>
+                          {time}
+                        </div>
+                        {scheduleColumns.map((column, columnIndex) => {
+                          const cellColumn = 2 + columnIndex;
+                          const isBodymind = column.category === "bodymind";
+                          const dayKey = column.dayKey;
+                          
+                          // Проверяем, является ли этот день сегодняшним
+                          const dayInfo = scheduleDays.find(d => d.key === dayKey);
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const dayDate = dayInfo ? new Date(dayInfo.date) : null;
+                          if (dayDate) dayDate.setHours(0, 0, 0, 0);
+                          const isToday = dayDate && dayDate.getTime() === today.getTime();
+                          
+                          // Получаем данные для этой ячейки
+                          let cellData: ScheduleGroup | ScheduleTrainer | null = null;
+                          if (isBodymind) {
+                            const found = filteredScheduleGroups.find(g => g.dayKey === dayKey && g.time === time);
+                            // Фильтруем по категории, если выбрана
+                            if (found && (categoryFilter === "all" || categoryFilter === "bodymind")) {
+                              cellData = found;
+                            } else {
+                              cellData = null;
+                            }
+                          } else {
+                            const found = filteredScheduleTrainers.find(t => t.dayKey === dayKey && t.time === time);
+                            // Фильтруем по категории, если выбрана
+                            if (found && (categoryFilter === "all" || categoryFilter === "pilates")) {
+                              cellData = found;
+                            } else {
+                              cellData = null;
+                            }
+                          }
+
+                          // Если есть данные, показываем блок события
+                          if (cellData) {
+                            const bodymindColor = "#6366F1"; // Фиолетовый для Body Mind
+                            const pilatesColor = "#10B981"; // Зеленый для Pilates Reformer
+                            const eventColor = isBodymind ? bodymindColor : pilatesColor;
+                            
+                            return (
+                              <div
+                                key={`${column.key}-${time}`}
+                                className="schedule-load-cell schedule-load-cell--event"
+                                draggable
+                                onClick={() => {
+                                  if (isBodymind) {
+                                    const group = cellData as ScheduleGroup;
+                                    setSelectedBodymindGroup(group);
+                                    setEditingBodymindName(group.name);
+                                    setEditingBodymindTrainer(group.trainer);
+                                    setEditingBodymindCapacity(group.capacity);
+                                    setIsEditingBodymind(false);
+                                    setDrawerMode("bodymind");
+                                    setIsDrawerOpen(true);
+                                    
+                                    // Загружаем клиентов из API при открытии drawer
+                                    if (group.bookingId) {
+                                      fetchScheduleBookingById(group.bookingId)
+                                        .then(booking => {
+                                          if (booking) {
+                                            const clients: MockClient[] = booking.clients.map(c => ({
+                                              id: c.client_id,
+                                              name: c.client_name,
+                                              phone: c.client_phone || "",
+                                            } as MockClient));
+                                            setEditingBodymindClients(clients);
+                                          }
+                                        })
+                                        .catch(error => {
+                                          console.error("Failed to load booking details:", error);
+                                        });
+                                    }
+                                  } else {
+                                    setSelectedPilatesTrainer(cellData as ScheduleTrainer);
+                                    setDrawerMode("pilates");
+                                    setIsDrawerOpen(true);
+                                  }
+                                }}
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData(
+                                    "application/json",
+                                    JSON.stringify({
+                                      type: isBodymind ? "bodymind" : "pilates",
+                                      data: cellData,
+                                      dayKey: dayKey,
+                                      time: time,
+                                    }),
+                                  );
+                                  e.dataTransfer.effectAllowed = "move";
+                                  e.currentTarget.style.opacity = "0.5";
+                                }}
+                                onDragEnd={(e) => {
+                                  e.currentTarget.style.opacity = "1";
+                                }}
+                                style={{
+                                  gridColumn: cellColumn,
+                                  background: eventColor + "15",
+                                  border: `1px solid ${eventColor}60`,
+                                  cursor: "move",
+                                  outline: isToday ? "2px solid rgba(99, 102, 241, 0.8)" : "none",
+                                  outlineOffset: isToday ? "-1px" : "0",
+                                }}
+                              >
+                                <div className="schedule-load-event-content" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: "100%", justifyContent: "space-between", gap: "0.25rem" }}>
+                                  <div style={{ flex: "0 1 auto", display: "flex", flexDirection: "column", gap: "0.25rem", overflow: "hidden" }}>
+                                    {isBodymind ? (
+                                      <>
+                                        <div className="schedule-load-event-name" style={{ fontSize: "0.75rem", lineHeight: "1.2", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", minHeight: "1.5rem" }}>
+                                          {(cellData as ScheduleGroup).name || "Без названия"}
+                                        </div>
+                                        <div className="schedule-load-event-meta" style={{ marginTop: "0", gap: "0.5rem", fontSize: "0.625rem" }}>
+                                          <div className="schedule-load-event-meta-item">
+                                            <Clock className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
+                                            <span>{time}</span>
+                                          </div>
+                                          <div className="schedule-load-event-meta-item">
+                                            <User className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
+                                            <span>{(cellData as ScheduleGroup).trainer}</span>
+                                          </div>
+                                          <div className="schedule-load-event-meta-item">
+                                            <Users className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
+                                            <span>{(cellData as ScheduleGroup).capacity}</span>
+                                          </div>
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <div className="schedule-load-event-name" style={{ fontSize: "0.75rem", lineHeight: "1.2" }}>
+                                          {(cellData as ScheduleTrainer).trainer}
+                                        </div>
+                                        <div className="schedule-load-event-meta" style={{ marginTop: "0", gap: "0.5rem", fontSize: "0.625rem" }}>
+                                          <div className="schedule-load-event-meta-item">
+                                            <Clock className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
+                                            <span>{time}</span>
+                                          </div>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div style={{ 
+                                    fontSize: "0.5625rem", 
+                                    color: eventColor, 
+                                    fontWeight: 600, 
+                                    marginTop: "auto", 
+                                    paddingTop: "0.25rem",
+                                    textTransform: "uppercase",
+                                    flexShrink: 0,
+                                    lineHeight: "1.1",
+                                    whiteSpace: "nowrap"
+                                  }}>
+                                    {isBodymind ? "Body Mind" : "Pilates Reformer"}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          
+                          // Пустая ячейка с поддержкой drop
+                          return (
+                            <div
+                              key={`${column.key}-${time}`}
+                              className="schedule-load-cell schedule-load-cell--empty"
+                              style={{
+                                gridColumn: cellColumn,
+                                cursor: "pointer",
+                                background: isToday ? "rgba(99, 102, 241, 0.05)" : "transparent",
+                                outline: isToday ? "1px solid rgba(99, 102, 241, 0.3)" : "none",
+                                outlineOffset: isToday ? "-1px" : "0",
+                              }}
+                              onClick={() => {
+                                // Находим конкретную дату для выбранного дня
+                                const selectedDay = scheduleDays.find(d => d.key === dayKey);
+                                // Используем локальную дату без конвертации в UTC, чтобы избежать проблем с часовыми поясами
+                                const selectedDate = selectedDay 
+                                  ? `${selectedDay.date.getFullYear()}-${String(selectedDay.date.getMonth() + 1).padStart(2, '0')}-${String(selectedDay.date.getDate()).padStart(2, '0')}`
+                                  : "";
+                                
+                                
+                                setSelectedScheduleCategory(isBodymind ? "bodymind" : "pilates");
+                                setSelectedScheduleDayKey(dayKey);
+                                setSelectedScheduleDate(selectedDate); // Сохраняем конкретную дату
+                                setSelectedScheduleTime(time);
+                                setDrawerMode("create-schedule");
+                                setIsDrawerOpen(true);
+                                setNewBodymindName("");
+                                setNewBodymindTrainer("");
+                                setNewBodymindCapacity("");
+                                setNewPilatesTrainer("");
+                                setShowNewPilatesTrainerSelect(false);
+                                setNewPilatesTrainerSearchQuery("");
+                              }}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                // Проверяем тип через dataTransfer.types
+                                const hasData = e.dataTransfer.types.includes("application/json");
+                                if (hasData) {
+                                  e.dataTransfer.dropEffect = "move";
+                                  e.currentTarget.style.background = "var(--muted)";
+                                } else {
+                                  e.dataTransfer.dropEffect = "none";
+                                }
+                              }}
+                              onDragLeave={(e) => {
+                                e.currentTarget.style.background = "var(--panel)";
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                e.currentTarget.style.background = "var(--panel)";
+                                
+                                try {
+                                  const dragData = JSON.parse(e.dataTransfer.getData("application/json"));
+                                  
+                                  // Проверяем, что категория совпадает
+                                  if (dragData.type === "bodymind" && isBodymind) {
+                                    handleGroupMove(dragData.data as ScheduleGroup, dayKey, time);
+                                  } else if (dragData.type === "pilates" && !isBodymind) {
+                                    handleTrainerMove(dragData.data as ScheduleTrainer, dayKey, time);
+                                  } else {
+                                    // Категории не совпадают - показываем предупреждение
+                                    const sourceCategory = dragData.type === "bodymind" ? "Body Mind" : "Pilates Reformer";
+                                    const targetCategory = isBodymind ? "Body Mind" : "Pilates Reformer";
+                                    toast.warning({
+                                      text: `Нельзя переместить карточку "${sourceCategory}" в категорию "${targetCategory}". Карточки можно перемещать только в пределах своей категории.`,
+                                    });
+                                  }
+                                } catch (error) {
+                                  console.error("Error parsing drag data:", error);
+                                }
+                              }}
+                            >
+                              {/* Данные будут подтягиваться из API */}
+                            </div>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+        </Card>
         )}
 
       {/* Drawer */}
@@ -1505,37 +3351,141 @@ export default function ScheduleLoadPage() {
         <>
           <div
             className="fixed inset-0 z-40"
-            style={{ background: "rgba(0, 0, 0, 0.3)", backdropFilter: "blur(4px)" }}
-            onClick={handleCloseDrawer}
+            style={{ 
+              background: "rgba(0, 0, 0, 0.3)", 
+              backdropFilter: "blur(4px)",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: "100%",
+              height: "100%",
+              minHeight: "100vh",
+            }}
+            onClick={(e) => {
+              // Не закрываем drawer, если открыто модальное окно удаления
+              if (showDeleteModal && drawerMode === "pilates") {
+                e.stopPropagation();
+                return;
+              }
+              handleCloseDrawer();
+            }}
           />
           <div className={`schedule-event-drawer ${isDrawerOpen ? "schedule-event-drawer--open" : ""}`}>
             <div className="schedule-event-drawer__inner">
               <div className="schedule-event-drawer__header">
                 <div className="schedule-event-drawer__header-content">
                   {drawerMode === "event" && selectedEvent ? (
-                    <>
-                      <h2 className="schedule-event-drawer__title">
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      width: "100%",
+                      gap: "16px",
+                    }}>
+                    <div style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "8px",
+                      flex: 1,
+                    }}>
+                      <div style={{
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#868e96",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        fontFamily: "'Manrope', sans-serif",
+                      }}>
+                        Запись
+                      </div>
+                      <h2 className="schedule-event-drawer__title" style={{ margin: 0 }}>
                         {selectedEvent?.clients && selectedEvent.clients.length > 0
                           ? selectedEvent.clients[0]
                           : selectedEvent?.title}
                       </h2>
+                      </div>
                       <div className="schedule-event-drawer__badge" style={{ 
-                        color: selectedEvent?.color,
-                        background: selectedEvent?.status === "paid" 
-                          ? STATUS_COLORS["paid"] + "20" 
+                        color: selectedEvent?.status === "paid" 
+                          ? "#10b981" 
                           : selectedEvent?.status === "reserved"
-                          ? STATUS_COLORS["reserved"] + "20"
-                          : "var(--muted)",
-                        border: `1.5px solid ${selectedEvent?.color || "var(--card-border)"}`,
+                          ? "#f59e0b"
+                          : "#495057",
+                        background: selectedEvent?.status === "paid" 
+                          ? "rgba(16, 185, 129, 0.1)" 
+                          : selectedEvent?.status === "reserved"
+                          ? "rgba(245, 158, 11, 0.1)"
+                          : "rgba(0, 0, 0, 0.04)",
+                        border: selectedEvent?.status === "paid" 
+                          ? "1px solid rgba(16, 185, 129, 0.3)" 
+                          : selectedEvent?.status === "reserved"
+                          ? "1px solid rgba(245, 158, 11, 0.3)"
+                          : "1px solid rgba(0, 0, 0, 0.12)",
+                        flexShrink: 0,
                       }}>
                         {selectedEvent && STATUS_LABELS[selectedEvent.status]}
+                      </div>
+                    </div>
+                  ) : drawerMode === "pilates" && selectedPilatesTrainer ? (
+                    <>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                        <div style={{ 
+                          fontSize: "0.6875rem", 
+                          fontWeight: 600, 
+                          color: "var(--muted-foreground)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                        }}>
+                          {showTrainerSelect ? "Редактирование" : "Просмотр"}
+                        </div>
+                        <h2 className="schedule-event-drawer__title">{selectedPilatesTrainer.trainer}</h2>
+                      </div>
+                      <div className="schedule-event-drawer__badge" style={{ 
+                        color: "var(--foreground)",
+                        background: "rgba(16, 185, 129, 0.06)",
+                        border: "1.5px solid rgba(16, 185, 129, 0.2)",
+                      }}>
+                        Pilates Reformer
         </div>
+                    </>
+                  ) : drawerMode === "bodymind" && selectedBodymindGroup ? (
+                    <>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                        <div style={{ 
+                          fontSize: "0.6875rem", 
+                          fontWeight: 600, 
+                          color: "var(--muted-foreground)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                        }}>
+                          Редактирование
+                        </div>
+                        <h2 className="schedule-event-drawer__title">{selectedBodymindGroup.name}</h2>
+                      </div>
+                      <div className="schedule-event-drawer__badge" style={{ 
+                        color: "var(--foreground)",
+                        background: "rgba(99, 102, 241, 0.06)",
+                        border: "1.5px solid rgba(99, 102, 241, 0.2)",
+                      }}>
+                        Body Mind
+        </div>
+                    </>
+                  ) : drawerMode === "create-schedule" ? (
+                    <>
+                      <h2 className="schedule-event-drawer__title">Новая запись</h2>
+                      {selectedScheduleCategory && (
+                        <div className="schedule-event-drawer__badge schedule-event-drawer__badge--soft">
+                          {selectedScheduleCategory === "bodymind" ? "Body Mind" : "Pilates Reformer"}
+                        </div>
+                      )}
                     </>
                   ) : selectedSlot ? (
                     <>
                       <h2 className="schedule-event-drawer__title">Новая запись</h2>
                       <div className="schedule-event-drawer__badge schedule-event-drawer__badge--soft">
-                        {selectedSlot.groupLabel} · {selectedSlot.columnLabel}
+                        {selectedSlot.groupKey === "kids" && selectedKidsService
+                          ? `${selectedSlot.groupLabel} · ${selectedKidsService.name}`
+                          : `${selectedSlot.groupLabel} · ${selectedSlot.columnLabel}`}
     </div>
                     </>
                   ) : null}
@@ -1548,20 +3498,29 @@ export default function ScheduleLoadPage() {
               <div className="schedule-event-drawer__content">
                 {drawerMode === "event" && selectedEvent && (
                   <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                    {/* Время с кнопками */}
+                    {/* Основная информация - Время и Количество человек в одной секции */}
                     <div style={{
-                      padding: "0.75rem 0.875rem",
-                      borderRadius: "10px",
+                      padding: "1rem",
                       background: "var(--muted)",
+                      borderRadius: "12px",
                       border: "1px solid var(--card-border)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "1rem",
                     }}>
+                      {/* Время */}
                       <div style={{
-                        fontSize: "0.6875rem",
-                        fontWeight: 600,
-                        color: "var(--muted-foreground)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "8px",
+                      }}>
+                        <div style={{
+                          fontSize: "0.8125rem",
+                          fontWeight: 600,
+                          color: "var(--muted-foreground)",
                         textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        marginBottom: "0.375rem",
+                          letterSpacing: "0.05em",
+                          fontFamily: "'Manrope', sans-serif",
                       }}>
                         Время
                       </div>
@@ -1569,88 +3528,94 @@ export default function ScheduleLoadPage() {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
-                        gap: "0.75rem",
+                          gap: "0.75rem",
                       }}>
                         <div style={{
-                          fontSize: "0.9375rem",
-                          fontWeight: 600,
-                          color: "var(--foreground)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                        }}>
-                          <Clock className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                            fontSize: "1rem",
+                            fontWeight: 700,
+                            color: "var(--foreground)",
+                            fontFamily: "'Manrope', sans-serif",
+                          }}>
                             {(draftEvent ?? selectedEvent).time}
                             {(draftEvent ?? selectedEvent).endTime &&
                               ` – ${(draftEvent ?? selectedEvent).endTime}`}
                         </div>
                         <div style={{
                           display: "flex",
-                          gap: "0.5rem",
+                            gap: "0.5rem",
                         }}>
                           <button
                             type="button"
                             onClick={handleExtendEvent}
                             style={{
-                              padding: "0.375rem 0.625rem",
-                              borderRadius: "6px",
-                              border: "1px solid var(--card-border)",
-                              background: "var(--background)",
-                              color: "var(--foreground)",
-                              fontSize: "0.75rem",
-                              fontWeight: 500,
+                                padding: "0.5rem 0.75rem",
+                                borderRadius: "8px",
+                                border: "1px solid var(--card-border)",
+                                background: "var(--background)",
+                                color: "var(--foreground)",
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
                               cursor: "pointer",
-                              transition: "all 0.2s ease",
-                              whiteSpace: "nowrap",
+                                transition: "all 0.2s ease",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.25rem",
+                                fontFamily: "'Manrope', sans-serif",
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "var(--muted)";
-                              e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.4)";
+                                e.currentTarget.style.background = "var(--muted)";
+                                e.currentTarget.style.borderColor = "var(--foreground)";
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "var(--background)";
-                              e.currentTarget.style.borderColor = "var(--card-border)";
+                                e.currentTarget.style.background = "var(--background)";
+                                e.currentTarget.style.borderColor = "var(--card-border)";
                             }}
                           >
-                            Продлить на 1 час
+                              <Plus className="h-3.5 w-3.5" />
+                              <span>+1ч</span>
                           </button>
                           <button
                             type="button"
                             onClick={handleShortenEvent}
                             style={{
-                              padding: "0.375rem 0.625rem",
-                              borderRadius: "6px",
-                              border: "1px solid var(--card-border)",
-                              background: "var(--background)",
-                              color: "var(--foreground)",
-                              fontSize: "0.75rem",
-                              fontWeight: 500,
+                                padding: "0.5rem 0.75rem",
+                                borderRadius: "8px",
+                                border: "1px solid var(--card-border)",
+                                background: "var(--background)",
+                                color: "var(--foreground)",
+                                fontSize: "0.75rem",
+                                fontWeight: 600,
                               cursor: "pointer",
-                              transition: "all 0.2s ease",
-                              whiteSpace: "nowrap",
+                                transition: "all 0.2s ease",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.25rem",
+                                fontFamily: "'Manrope', sans-serif",
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.background = "var(--muted)";
-                              e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.4)";
+                                e.currentTarget.style.background = "var(--muted)";
+                                e.currentTarget.style.borderColor = "var(--foreground)";
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.background = "var(--background)";
-                              e.currentTarget.style.borderColor = "var(--card-border)";
+                                e.currentTarget.style.background = "var(--background)";
+                                e.currentTarget.style.borderColor = "var(--card-border)";
                             }}
                           >
-                            Сократить на 1 час
+                              <X className="h-3.5 w-3.5" />
+                              <span>-1ч</span>
                           </button>
                       </div>
                       </div>
                       {extendError && (
                         <div style={{
-                          marginTop: "0.5rem",
-                          padding: "0.5rem 0.75rem",
+                            marginTop: "4px",
+                            padding: "8px 12px",
                           borderRadius: "8px",
                           background: "rgba(239, 68, 68, 0.1)",
                           border: "1px solid rgba(239, 68, 68, 0.3)",
                           color: "#ef4444",
-                          fontSize: "0.75rem",
+                            fontSize: "12px",
+                            fontFamily: "'Manrope', sans-serif",
                         }}>
                           {extendError}
                         </div>
@@ -1658,198 +3623,281 @@ export default function ScheduleLoadPage() {
                     </div>
 
                     {/* Количество человек */}
-                      {selectedEvent.peopleCount && (
+                      {selectedEvent.peopleCount !== undefined && (
                       <div style={{
-                        padding: "0.75rem 0.875rem",
-                        borderRadius: "10px",
-                        background: "var(--muted)",
-                        border: "1px solid var(--card-border)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.5rem",
+                          paddingTop: "1rem",
+                          borderTop: "1px solid var(--card-border)",
                       }}>
                         <div style={{
-                          fontSize: "0.6875rem",
-                          fontWeight: 600,
-                          color: "var(--muted-foreground)",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "0.5rem",
+                          }}>
+                            <div style={{
+                              fontSize: "0.8125rem",
+                              fontWeight: 600,
+                              color: "var(--muted-foreground)",
                           textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          marginBottom: "0.375rem",
+                              letterSpacing: "0.05em",
+                              fontFamily: "'Manrope', sans-serif",
                         }}>
                           Количество человек
                           </div>
                         <div style={{
-                          fontSize: "0.9375rem",
-                          fontWeight: 600,
-                          color: "var(--foreground)",
                           display: "flex",
                           alignItems: "center",
-                          gap: "0.5rem",
-                        }}>
-                          <Users className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                          {selectedEvent.peopleCount} чел.
+                              justifyContent: "space-between",
+                              gap: "0.75rem",
+                            }}>
+                              <div style={{
+                                fontSize: "1rem",
+                                fontWeight: 700,
+                                color: "var(--foreground)",
+                                fontFamily: "'Manrope', sans-serif",
+                              }}>
+                                {(draftEvent?.peopleCount ?? selectedEvent.peopleCount) || 1} чел.
+                              </div>
+                              <div style={{
+                                display: "flex",
+                                gap: "0.5rem",
+                              }}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const current = draftEvent?.peopleCount ?? selectedEvent.peopleCount ?? 1;
+                                    const newValue = Math.max(1, current - 1);
+                                    setDraftEvent(prev => prev 
+                                      ? { ...prev, peopleCount: newValue } 
+                                      : { ...selectedEvent, peopleCount: newValue } as CalendarEvent);
+                                  }}
+                                  style={{
+                                    padding: "0.5rem 0.75rem",
+                                    borderRadius: "8px",
+                                    border: "1px solid var(--card-border)",
+                                    background: "var(--background)",
+                                    color: "var(--foreground)",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    transition: "all 0.2s ease",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.25rem",
+                                    fontFamily: "'Manrope', sans-serif",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = "var(--muted)";
+                                    e.currentTarget.style.borderColor = "var(--foreground)";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = "var(--background)";
+                                    e.currentTarget.style.borderColor = "var(--card-border)";
+                                  }}
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                  <span>-1</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const current = draftEvent?.peopleCount ?? selectedEvent.peopleCount ?? 1;
+                                    const newValue = current + 1;
+                                    setDraftEvent(prev => prev 
+                                      ? { ...prev, peopleCount: newValue } 
+                                      : { ...selectedEvent, peopleCount: newValue } as CalendarEvent);
+                                  }}
+                                  style={{
+                                    padding: "0.5rem 0.75rem",
+                                    borderRadius: "8px",
+                                    border: "1px solid var(--card-border)",
+                                    background: "var(--background)",
+                                    color: "var(--foreground)",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    transition: "all 0.2s ease",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "0.25rem",
+                                    fontFamily: "'Manrope', sans-serif",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = "var(--muted)";
+                                    e.currentTarget.style.borderColor = "var(--foreground)";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = "var(--background)";
+                                    e.currentTarget.style.borderColor = "var(--card-border)";
+                                  }}
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                  <span>+1</span>
+                                </button>
+                              </div>
+                            </div>
                         </div>
                         </div>
                       )}
+                    </div>
 
+                    {/* Клиенты и контакты */}
+                    {(selectedEvent.clients && selectedEvent.clients.length > 0) || selectedEvent.phone ? (
+                      <div style={{
+                        padding: "1rem",
+                        background: "var(--muted)",
+                        borderRadius: "12px",
+                        border: "1px solid var(--card-border)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "1rem",
+                      }}>
                     {/* Клиенты */}
                       {selectedEvent.clients && selectedEvent.clients.length > 0 && (
                       <div style={{
-                        padding: "0.75rem 0.875rem",
-                        borderRadius: "10px",
-                        background: "var(--muted)",
-                        border: "1px solid var(--card-border)",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "0.625rem",
                       }}>
                         <div style={{
-                          fontSize: "0.6875rem",
-                          fontWeight: 600,
-                          color: "var(--muted-foreground)",
+                              fontSize: "0.8125rem",
+                              fontWeight: 600,
+                              color: "var(--muted-foreground)",
                           textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          marginBottom: "0.5rem",
+                              letterSpacing: "0.05em",
+                              fontFamily: "'Manrope', sans-serif",
                         }}>
                           Клиенты
                           </div>
                         <div style={{
                           display: "flex",
                           flexDirection: "column",
-                          gap: "0.5rem",
-                        }}>
-                          {selectedEvent.clients.map((client, index) => (
+                              gap: "0.5rem",
+                            }}>
+                              {selectedEvent.clients.map((client, index) => {
+                                // Используем телефон из события, если он есть
+                                const clientPhone = selectedEvent?.phone;
+                                
+                                return (
                             <div
                               key={index}
                               style={{
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "space-between",
-                                gap: "0.75rem",
-                              }}
-                            >
-                              <div style={{
-                                fontSize: "0.9375rem",
-                                fontWeight: 600,
-                                color: "var(--foreground)",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: "0.5rem",
-                              }}>
-                                <User className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                                {client}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={handleDeleteEvent}
+                                      gap: "0.75rem",
+                                      padding: "0.625rem 0.875rem",
+                                      borderRadius: "10px",
+                                      background: "var(--background)",
+                                      border: "1px solid var(--card-border)",
+                                    }}
+                                  >
+                                    <div 
                                 style={{
-                                  padding: "0.375rem 0.5rem",
-                                  borderRadius: "6px",
-                                  border: "1px solid var(--card-border)",
-                                  background: "var(--background)",
-                                  color: "#ef4444",
-                                  fontSize: "0.75rem",
-                                  fontWeight: 500,
-                                  cursor: "pointer",
-                                  transition: "all 0.2s ease",
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
-                                  e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.3)";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.background = "var(--background)";
-                                  e.currentTarget.style.borderColor = "var(--card-border)";
-                                }}
-                              >
-                                Удалить
-                              </button>
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: "0.25rem",
+                                        flex: 1,
+                                        fontFamily: "'Manrope', sans-serif",
+                                      }}
+                                    >
+                                      <div style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "0.5rem",
+                                        fontSize: "0.875rem",
+                                        fontWeight: 600,
+                                        color: "var(--foreground)",
+                                      }}>
+                                        <User className="h-4 w-4" style={{ color: "var(--muted-foreground)" }} />
+                                        {client}
                             </div>
-                          ))}
+                                      {clientPhone && (
+                                        <div style={{
+                                          fontSize: "0.8125rem",
+                                          fontWeight: 400,
+                                          color: "var(--muted-foreground)",
+                                          marginLeft: "1.5rem",
+                                          lineHeight: "1.4",
+                                        }}>
+                                          {clientPhone}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                         </div>
                         </div>
                       )}
 
-                    {/* Телефон */}
-                      {selectedEvent.phone && (
+                        {/* Телефон (если нет в клиентах) */}
+                        {selectedEvent.phone && (!selectedEvent.clients || selectedEvent.clients.length === 0) && (
                       <div style={{
-                        padding: "0.75rem 0.875rem",
-                        borderRadius: "10px",
-                        background: "var(--muted)",
-                        border: "1px solid var(--card-border)",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "8px",
                       }}>
                         <div style={{
-                          fontSize: "0.6875rem",
-                          fontWeight: 600,
-                          color: "var(--muted-foreground)",
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              color: "#868e96",
                           textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          marginBottom: "0.375rem",
+                              letterSpacing: "0.5px",
+                              fontFamily: "'Manrope', sans-serif",
                         }}>
                           Телефон
                           </div>
                         <div style={{
-                          fontSize: "0.9375rem",
+                              fontSize: "14px",
                           fontWeight: 600,
-                          color: "var(--foreground)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                        }}>
-                          <Phone className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                              color: "#0a0a0a",
+                              fontFamily: "'Manrope', sans-serif",
+                              padding: "10px 14px",
+                              background: "#ffffff",
+                              borderRadius: "10px",
+                              border: "1px solid rgba(0, 0, 0, 0.08)",
+                            }}>
                           {selectedEvent.phone}
                         </div>
                         </div>
                       )}
+                      </div>
+                    ) : null}
 
-                    {/* Тренер */}
-                      {selectedEvent.coach && (
+                    {/* Дополнительная информация - Примечание */}
+                    {selectedEvent.note && (
                       <div style={{
-                        padding: "0.75rem 0.875rem",
-                        borderRadius: "10px",
+                        padding: "1rem",
                         background: "var(--muted)",
+                        borderRadius: "12px",
                         border: "1px solid var(--card-border)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.625rem",
                       }}>
-                        <div style={{
-                          fontSize: "0.6875rem",
-                          fontWeight: 600,
-                          color: "var(--muted-foreground)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          marginBottom: "0.375rem",
-                        }}>
-                          Тренер
-                          </div>
-                        <div style={{
-                          fontSize: "0.9375rem",
-                          fontWeight: 600,
-                          color: "var(--foreground)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                        }}>
-                          <User className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                          {selectedEvent.coach}
-                        </div>
-                        </div>
-                      )}
-
-                    {/* Примечание */}
-                      {selectedEvent.note && (
                       <div style={{
-                        padding: "0.75rem 0.875rem",
-                        borderRadius: "10px",
-                        background: "var(--muted)",
-                        border: "1px solid var(--card-border)",
-                      }}>
-                        <div style={{
-                          fontSize: "0.6875rem",
+                              fontSize: "0.8125rem",
                           fontWeight: 600,
-                          color: "var(--muted-foreground)",
+                              color: "var(--muted-foreground)",
                           textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          marginBottom: "0.375rem",
+                              letterSpacing: "0.05em",
+                              fontFamily: "'Manrope', sans-serif",
                         }}>
                           Примечание
                           </div>
                         <div style={{
-                          fontSize: "0.875rem",
-                          color: "var(--foreground)",
-                          lineHeight: "1.5",
+                              fontSize: "0.875rem",
+                              fontWeight: 400,
+                              color: "var(--foreground)",
+                              lineHeight: "1.6",
+                              fontFamily: "'Manrope', sans-serif",
+                              padding: "0.625rem 0.875rem",
+                              background: "var(--background)",
+                              borderRadius: "10px",
+                              border: "1px solid var(--card-border)",
                         }}>
                           {selectedEvent.note}
                         </div>
@@ -1857,231 +3905,404 @@ export default function ScheduleLoadPage() {
                       )}
 
                     {/* Оплата (если статус "reserved") */}
-                      {selectedEvent.status === "reserved" && (
-                      <div>
-                          {!isPaymentMode ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (!paymentTotal) {
-                                  setPaymentTotal("200 000");
-                                }
-                                setIsPaymentMode(true);
-                              }}
-                            style={{
-                              width: "100%",
-                              padding: "0.75rem 1rem",
-                              borderRadius: "10px",
-                              border: "1.5px solid transparent",
-                              background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
-                              color: "#fff",
-                              fontSize: "0.875rem",
-                              fontWeight: 600,
-                              cursor: "pointer",
-                              transition: "all 0.2s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = "translateY(-1px)";
-                              e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.3)";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = "translateY(0)";
-                              e.currentTarget.style.boxShadow = "none";
-                            }}
-                            >
-                              Оплатить
-                            </button>
-                          ) : (
+                      {selectedEvent.status === "reserved" && isPaymentMode && (
+                      <div style={{
+                        padding: "1rem",
+                        background: "var(--muted)",
+                        borderRadius: "12px",
+                        border: "1px solid var(--card-border)",
+                      }}>
                           <div style={{
-                            padding: "1rem",
+                              fontSize: "0.8125rem",
+                              fontWeight: 600,
+                              color: "var(--muted-foreground)",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.05em",
+                              fontFamily: "'Manrope', sans-serif",
+                              marginBottom: "0.75rem",
+                            }}>
+                              Метод оплаты
+                            </div>
+
+                            <div style={{
+                            padding: "0.75rem",
                             borderRadius: "10px",
-                            background: "var(--muted)",
                             border: "1px solid var(--card-border)",
+                            marginBottom: "1rem",
+                            background: "var(--background)",
+                          }}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                                {/* Наличные */}
+                                <div
+                                  style={{
                             display: "flex",
                             flexDirection: "column",
-                            gap: "0.75rem",
-                          }}>
-                            <div style={{
+                                    gap: "0.75rem",
+                                    padding: "0.875rem",
+                                    borderRadius: "10px",
+                                    border: isCashSelected ? "1px solid var(--foreground)" : "1px solid var(--card-border)",
+                                    background: isCashSelected ? "var(--muted)" : "var(--background)",
+                                    transition: "all 0.2s ease",
+                                  }}
+                                >
+                                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                    <label
+                                      style={{
                               display: "flex",
-                              justifyContent: "space-between",
                               alignItems: "center",
-                              paddingBottom: "0.75rem",
-                              borderBottom: "1px solid var(--card-border)",
-                            }}>
+                                        gap: "0.625rem",
+                                        cursor: "pointer",
+                                        minWidth: "100px",
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isCashSelected}
+                                        onChange={(e) => {
+                                          setIsCashSelected(e.target.checked);
+                                          if (!e.target.checked) {
+                                            setPaymentCash("");
+                                          }
+                                        }}
+                                        style={{ 
+                                          margin: 0, 
+                                          cursor: "pointer", 
+                                          accentColor: "#FAAB1C",
+                                          width: "18px",
+                                          height: "18px",
+                                        }}
+                                      />
                               <span style={{
-                                fontSize: "0.8125rem",
-                                color: "var(--muted-foreground)",
-                              }}>
-                                Итого за услугу
-                              </span>
-                              <strong style={{
-                                fontSize: "1rem",
-                                color: "var(--foreground)",
-                              }}>
-                                {paymentTotal || "200 000"} сум
-                              </strong>
-                              </div>
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                              <label style={{
-                                fontSize: "0.8125rem",
-                                fontWeight: 600,
-                                color: "var(--foreground)",
+                                        fontSize: "0.875rem", 
+                                        fontWeight: isCashSelected ? 600 : 500, 
+                                        color: "var(--foreground)",
+                                        userSelect: "none",
+                                        fontFamily: "'Manrope', sans-serif",
                               }}>
                                 Наличные
+                                      </span>
                               </label>
+                                    {isCashSelected && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const total = Number((paymentTotal || "200 000").replace(/\s+/g, ""));
+                                          setPaymentCash(total.toLocaleString("ru-RU").replace(/\u00A0/g, " "));
+                                          setPaymentCard("");
+                                          setIsCardSelected(false);
+                                        }}
+                                        style={{
+                                          marginLeft: "auto",
+                                          padding: "0.5rem 0.875rem",
+                                          borderRadius: "10px",
+                                          border: "1px solid var(--card-border)",
+                                          background: Number(paymentCash.replace(/\s+/g, "")) === Number((paymentTotal || "200 000").replace(/\s+/g, "")) ? "var(--foreground)" : "var(--background)",
+                                          color: Number(paymentCash.replace(/\s+/g, "")) === Number((paymentTotal || "200 000").replace(/\s+/g, "")) ? "#ffffff" : "var(--foreground)",
+                                          fontSize: "0.8125rem",
+                                          fontWeight: 600,
+                                          cursor: "pointer",
+                                          transition: "all 0.2s ease",
+                                          whiteSpace: "nowrap",
+                                          fontFamily: "'Manrope', sans-serif",
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          if (Number(paymentCash.replace(/\s+/g, "")) !== Number((paymentTotal || "200 000").replace(/\s+/g, ""))) {
+                                            e.currentTarget.style.background = "var(--muted)";
+                                            e.currentTarget.style.borderColor = "var(--foreground)";
+                                          }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          if (Number(paymentCash.replace(/\s+/g, "")) !== Number((paymentTotal || "200 000").replace(/\s+/g, ""))) {
+                                            e.currentTarget.style.background = "var(--background)";
+                                            e.currentTarget.style.borderColor = "var(--card-border)";
+                                          }
+                                        }}
+                                      >
+                                        Вся сумма
+                                      </button>
+                                    )}
+                                  </div>
+                                  {isCashSelected && (
                                 <input
                                   type="text"
-                                  placeholder="Например, 100 000"
                                   value={paymentCash}
-                                  onChange={(e) => {
-                                    const digits = e.target.value.replace(/[^\d]/g, "");
-                                    if (!digits) {
-                                      setPaymentCash("");
-                                      return;
-                                    }
-                                    const formatted = Number(digits).toLocaleString("ru-RU").replace(/\u00A0/g, " ");
-                                    setPaymentCash(formatted);
-                                  }}
+                                      onChange={(e) => {
+                                        const value = e.target.value.replace(/\D/g, "");
+                                        if (value) {
+                                          const num = Number(value);
+                                          setPaymentCash(num.toLocaleString("ru-RU").replace(/\u00A0/g, " "));
+                                        } else {
+                                          setPaymentCash("");
+                                        }
+                                      }}
+                                      placeholder="0"
                                 style={{
-                                  width: "100%",
                                   padding: "0.625rem 0.875rem",
-                                  borderRadius: "10px",
-                                  border: "1.5px solid var(--card-border)",
+                                          borderRadius: "8px",
+                                        border: "1px solid var(--card-border)",
                                   background: "var(--background)",
                                   fontSize: "0.875rem",
                                   color: "var(--foreground)",
-                                  outline: "none",
-                                  transition: "all 0.2s ease",
-                                }}
-                                onFocus={(e) => {
-                                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
-                                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
-                                }}
-                                onBlur={(e) => {
-                                  e.currentTarget.style.borderColor = "var(--card-border)";
-                                  e.currentTarget.style.boxShadow = "none";
-                                }}
-                                />
+                                        fontFamily: "'Manrope', sans-serif",
+                                      }}
+                                    />
+                                  )}
                               </div>
-
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                              <label style={{
-                                fontSize: "0.8125rem",
-                                fontWeight: 600,
-                                color: "var(--foreground)",
+                                {/* Карта */}
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: "0.75rem",
+                                    padding: "0.875rem",
+                                    borderRadius: "10px",
+                                    border: isCardSelected ? "1px solid var(--foreground)" : "1px solid var(--card-border)",
+                                    background: isCardSelected ? "var(--muted)" : "var(--background)",
+                                    transition: "all 0.2s ease",
+                                  }}
+                                >
+                                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                                    <label
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: "0.625rem",
+                                        cursor: "pointer",
+                                        minWidth: "100px",
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isCardSelected}
+                                        onChange={(e) => {
+                                          setIsCardSelected(e.target.checked);
+                                          if (!e.target.checked) {
+                                            setPaymentCard("");
+                                          }
+                                        }}
+                                        style={{ 
+                                          margin: 0, 
+                                          cursor: "pointer", 
+                                          accentColor: "#FAAB1C",
+                                          width: "18px",
+                                          height: "18px",
+                                        }}
+                                      />
+                                      <span style={{ 
+                                        fontSize: "0.875rem", 
+                                        fontWeight: isCardSelected ? 600 : 500, 
+                                        color: "var(--foreground)",
+                                        userSelect: "none",
+                                        fontFamily: "'Manrope', sans-serif",
                               }}>
-                                Перевод
+                                Карта
+                                      </span>
                               </label>
+                                    {isCardSelected && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const total = Number((paymentTotal || "200 000").replace(/\s+/g, ""));
+                                          setPaymentCard(total.toLocaleString("ru-RU").replace(/\u00A0/g, " "));
+                                          setPaymentCash("");
+                                          setIsCashSelected(false);
+                                        }}
+                                        style={{
+                                          marginLeft: "auto",
+                                          padding: "0.5rem 0.875rem",
+                                          borderRadius: "10px",
+                                          border: "1px solid var(--card-border)",
+                                          background: Number(paymentCard.replace(/\s+/g, "")) === Number((paymentTotal || "200 000").replace(/\s+/g, "")) ? "var(--foreground)" : "var(--background)",
+                                          color: Number(paymentCard.replace(/\s+/g, "")) === Number((paymentTotal || "200 000").replace(/\s+/g, "")) ? "#ffffff" : "var(--foreground)",
+                                          fontSize: "0.8125rem",
+                                          fontWeight: 600,
+                                          cursor: "pointer",
+                                          transition: "all 0.2s ease",
+                                          whiteSpace: "nowrap",
+                                          fontFamily: "'Manrope', sans-serif",
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          if (Number(paymentCard.replace(/\s+/g, "")) !== Number((paymentTotal || "200 000").replace(/\s+/g, ""))) {
+                                            e.currentTarget.style.background = "var(--muted)";
+                                            e.currentTarget.style.borderColor = "var(--foreground)";
+                                          }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          if (Number(paymentCard.replace(/\s+/g, "")) !== Number((paymentTotal || "200 000").replace(/\s+/g, ""))) {
+                                            e.currentTarget.style.background = "var(--background)";
+                                            e.currentTarget.style.borderColor = "var(--card-border)";
+                                          }
+                                        }}
+                                      >
+                                        Вся сумма
+                                      </button>
+                                    )}
+                                  </div>
+                                  {isCardSelected && (
                                 <input
                                   type="text"
-                                  placeholder="Например, 100 000"
                                   value={paymentCard}
-                                  onChange={(e) => {
-                                    const digits = e.target.value.replace(/[^\d]/g, "");
-                                    if (!digits) {
-                                      setPaymentCard("");
-                                      return;
-                                    }
-                                    const formatted = Number(digits).toLocaleString("ru-RU").replace(/\u00A0/g, " ");
-                                    setPaymentCard(formatted);
-                                  }}
+                                      onChange={(e) => {
+                                        const value = e.target.value.replace(/\D/g, "");
+                                        if (value) {
+                                          const num = Number(value);
+                                          setPaymentCard(num.toLocaleString("ru-RU").replace(/\u00A0/g, " "));
+                                        } else {
+                                          setPaymentCard("");
+                                        }
+                                      }}
+                                      placeholder="0"
                                 style={{
-                                  width: "100%",
-                                  padding: "0.625rem 0.875rem",
-                                  borderRadius: "10px",
-                                  border: "1.5px solid var(--card-border)",
-                                  background: "var(--background)",
-                                  fontSize: "0.875rem",
-                                  color: "var(--foreground)",
-                                  outline: "none",
-                                  transition: "all 0.2s ease",
+                                        padding: "0.625rem 0.875rem",
+                                        borderRadius: "8px",
+                                        border: "1px solid var(--card-border)",
+                                        background: "var(--background)",
+                                        fontSize: "0.875rem",
+                                        color: "var(--foreground)",
+                                          fontFamily: "'Manrope', sans-serif",
                                 }}
-                                onFocus={(e) => {
-                                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
-                                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
-                                }}
-                                onBlur={(e) => {
-                                  e.currentTarget.style.borderColor = "var(--card-border)";
-                                  e.currentTarget.style.boxShadow = "none";
-                                }}
-                                />
-                              </div>
-
-                              {(paymentTotal || paymentCash || paymentCard) && (
-                              <div style={{
-                                padding: "0.75rem",
-                                borderRadius: "8px",
-                                background: "var(--background)",
-                                border: "1px solid var(--card-border)",
-                                display: "flex",
-                                flexDirection: "column",
-                                gap: "0.5rem",
-                              }}>
-                                  {paymentTotal && (
-                                  <div style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    fontSize: "0.8125rem",
-                                  }}>
-                                    <span style={{ color: "var(--muted-foreground)" }}>Итого за услугу</span>
-                                    <strong style={{ color: "var(--foreground)" }}>{paymentTotal} сум</strong>
-                                    </div>
-                                  )}
-                                  {paymentCash && (
-                                  <div style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    fontSize: "0.8125rem",
-                                  }}>
-                                    <span style={{ color: "var(--muted-foreground)" }}>Наличные</span>
-                                    <strong style={{ color: "var(--foreground)" }}>{paymentCash} сум</strong>
-                                    </div>
-                                  )}
-                                  {paymentCard && (
-                                  <div style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    fontSize: "0.8125rem",
-                                  }}>
-                                    <span style={{ color: "var(--muted-foreground)" }}>Перевод</span>
-                                    <strong style={{ color: "var(--foreground)" }}>{paymentCard} сум</strong>
-                                    </div>
+                                    />
                                   )}
                                 </div>
-                              )}
+                              </div>
+                              </div>
 
+                            {/* Итоговая сумма и остаток */}
+                              <div style={{
+                              padding: "0.875rem",
+                                borderRadius: "10px",
+                              background: "var(--background)",
+                              border: "1px solid var(--card-border)",
+                              marginBottom: "1rem",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: "0.625rem",
+                              fontSize: "0.875rem",
+                              fontFamily: "'Manrope', sans-serif",
+                            }}>
+                              {/* К оплате */}
+                                  <div style={{
+                                    display: "flex",
+                                alignItems: "center",
+                                    justifyContent: "space-between",
+                                paddingBottom: "0.625rem",
+                                borderBottom: "1px solid var(--card-border)",
+                              }}>
+                                <span style={{ color: "var(--muted-foreground)" }}>К оплате:</span>
+                                <strong style={{ color: "var(--foreground)", fontWeight: 600 }}>
+                                  {paymentTotal || "200 000"} сум
+                                </strong>
+                              </div>
+                              
+                              {/* Оплачено наличными */}
+                              {isCashSelected && paymentCash && Number(paymentCash.replace(/\s+/g, "")) > 0 && (
+                                <div style={{
+                                  display: "flex",
+                                    alignItems: "center", 
+                                  justifyContent: "space-between",
+                                }}>
+                                  <span style={{ color: "var(--muted-foreground)" }}>Наличными:</span>
+                                  <strong style={{ color: "var(--foreground)", fontWeight: 600 }}>
+                                    {paymentCash} сум
+                                  </strong>
+                                    </div>
+                              )}
+                              
+                              {/* Оплачено картой */}
+                              {isCardSelected && paymentCard && Number(paymentCard.replace(/\s+/g, "")) > 0 && (
+                                  <div style={{
+                                    display: "flex",
+                                  alignItems: "center",
+                                    justifyContent: "space-between",
+                                }}>
+                                  <span style={{ color: "var(--muted-foreground)" }}>Картой:</span>
+                                  <strong style={{ color: "var(--foreground)", fontWeight: 600 }}>
+                                    {paymentCard} сум
+                                  </strong>
+                                    </div>
+                              )}
+                              
+                              {/* Остаток к оплате */}
+                              {(() => {
+                                const total = Number((paymentTotal || "200 000").replace(/\s+/g, ""));
+                                const cash = Number((paymentCash || "0").replace(/\s+/g, ""));
+                                const card = Number((paymentCard || "0").replace(/\s+/g, ""));
+                                const paid = cash + card;
+                                const remainder = total - paid;
+                                
+                                if (remainder > 0) {
+                                  return (
+                                  <div style={{
+                                    display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
+                                      paddingTop: "0.625rem",
+                                      borderTop: "1px solid var(--card-border)",
+                                    }}>
+                                      <span style={{ color: "var(--muted-foreground)", fontWeight: 600 }}>Остаток:</span>
+                                      <strong style={{ 
+                                        color: "#ef4444", 
+                                        fontWeight: 700,
+                                        fontSize: "0.9375rem",
+                                      }}>
+                                        {remainder.toLocaleString("ru-RU").replace(/\u00A0/g, " ")} сум
+                                      </strong>
+                                    </div>
+                                  );
+                                } else if (remainder === 0 && paid > 0) {
+                                  return (
+                                  <div style={{
+                                    display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
+                                      paddingTop: "0.625rem",
+                                      borderTop: "1px solid var(--card-border)",
+                                    }}>
+                                      <span style={{ color: "var(--muted-foreground)", fontWeight: 600 }}>Остаток:</span>
+                                      <strong style={{ 
+                                        color: "#16a34a", 
+                                        fontWeight: 700,
+                                        fontSize: "0.9375rem",
+                                      }}>
+                                        0 сум
+                                      </strong>
+                                </div>
+                                  );
+                                }
+                                return null;
+                              })()}
+                                </div>
+
+                            {/* Кнопки оплаты */}
                             <div style={{
                               display: "flex",
-                              gap: "0.625rem",
-                              paddingTop: "0.75rem",
-                              borderTop: "1px solid var(--card-border)",
+                              gap: "0.5rem",
                             }}>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setIsPaymentMode(false);
-                                    setPaymentTotal("");
-                                    setPaymentCash("");
-                                    setPaymentCard("");
-                                  }}
+                                onClick={() => setIsPaymentMode(false)}
                                 style={{
                                   flex: 1,
-                                  padding: "0.75rem 1rem",
+                                  padding: "0.75rem 1.25rem",
                                   borderRadius: "10px",
-                                  border: "1.5px solid var(--card-border)",
+                                  border: "1px solid var(--card-border)",
                                   background: "var(--background)",
-                                  color: "var(--foreground)",
+                                  color: "var(--muted-foreground)",
                                   fontSize: "0.875rem",
                                   fontWeight: 500,
                                   cursor: "pointer",
                                   transition: "all 0.2s ease",
+                                  fontFamily: "'Manrope', sans-serif",
                                 }}
                                 onMouseEnter={(e) => {
                                   e.currentTarget.style.background = "var(--muted)";
+                                  e.currentTarget.style.borderColor = "var(--foreground)";
                                 }}
                                 onMouseLeave={(e) => {
                                   e.currentTarget.style.background = "var(--background)";
+                                  e.currentTarget.style.borderColor = "var(--card-border)";
                                 }}
                                 >
                                   Отмена
@@ -2091,89 +4312,186 @@ export default function ScheduleLoadPage() {
                                   onClick={handleConfirmPayment}
                                 style={{
                                   flex: 1,
-                                  padding: "0.75rem 1rem",
+                                  padding: "0.75rem 1.25rem",
                                   borderRadius: "10px",
-                                  border: "1.5px solid transparent",
-                                  background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
-                                  color: "#fff",
+                                  border: "1px solid transparent",
+                                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                                  color: "#ffffff",
                                   fontSize: "0.875rem",
                                   fontWeight: 600,
                                   cursor: "pointer",
                                   transition: "all 0.2s ease",
+                                  fontFamily: "'Manrope', sans-serif",
+                                  boxShadow: "0 4px 12px rgba(16, 185, 129, 0.25)",
                                 }}
                                 onMouseEnter={(e) => {
                                   e.currentTarget.style.transform = "translateY(-1px)";
-                                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.3)";
+                                  e.currentTarget.style.boxShadow = "0 6px 16px rgba(16, 185, 129, 0.35)";
                                 }}
                                 onMouseLeave={(e) => {
                                   e.currentTarget.style.transform = "translateY(0)";
-                                  e.currentTarget.style.boxShadow = "none";
+                                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.25)";
                                 }}
                                 >
                                   Подтвердить оплату
                                 </button>
                               </div>
-                            </div>
-                          )}
                         </div>
                       )}
 
                     {/* Кнопки действий */}
                     <div style={{
                       display: "flex",
+                      flexDirection: "column",
                       gap: "0.625rem",
-                      paddingTop: "1rem",
+                      paddingTop: "1.25rem",
+                      marginTop: "0.25rem",
                       borderTop: "1px solid var(--card-border)",
                     }}>
+                      {/* Оплатить (если статус "reserved") */}
+                      {selectedEvent.status === "reserved" && !isPaymentMode && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!paymentTotal) {
+                              setPaymentTotal("200 000");
+                            }
+                            setIsPaymentMode(true);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "0.75rem 1.25rem",
+                            borderRadius: "10px",
+                            border: "1px solid transparent",
+                            background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                            color: "#ffffff",
+                            fontSize: "0.875rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            fontFamily: "'Manrope', sans-serif",
+                            boxShadow: "0 4px 12px rgba(16, 185, 129, 0.25)",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = "translateY(-1px)";
+                            e.currentTarget.style.boxShadow = "0 6px 16px rgba(16, 185, 129, 0.35)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = "translateY(0)";
+                            e.currentTarget.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.25)";
+                          }}
+                        >
+                          Оплатить
+                        </button>
+                      )}
+
+                      {/* Основные действия */}
+                      <div style={{
+                        display: "flex",
+                        gap: "0.625rem",
+                      }}>
+                        {(() => {
+                          const hasChanges = draftEvent && selectedEvent && (
+                            draftEvent.time !== selectedEvent.time ||
+                            draftEvent.endTime !== selectedEvent.endTime ||
+                            draftEvent.status !== selectedEvent.status ||
+                            draftEvent.peopleCount !== selectedEvent.peopleCount
+                          );
+                          return (
+                      <button
+                        type="button"
+                              onClick={handleSaveEventChanges}
+                        style={{
+                          flex: 1,
+                                padding: "0.75rem 1.25rem",
+                          borderRadius: "10px",
+                                border: "1px solid var(--card-border)",
+                                background: hasChanges ? "var(--foreground)" : "var(--muted)",
+                                color: hasChanges ? "#ffffff" : "var(--muted-foreground)",
+                                fontSize: "0.875rem",
+                                fontWeight: 600,
+                                cursor: hasChanges ? "pointer" : "not-allowed",
+                                transition: "all 0.2s ease",
+                                fontFamily: "'Manrope', sans-serif",
+                                opacity: hasChanges ? 1 : 0.6,
+                              }}
+                              disabled={!hasChanges}
+                        onMouseEnter={(e) => {
+                                if (hasChanges) {
+                                  e.currentTarget.style.transform = "translateY(-1px)";
+                                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
+                                }
+                        }}
+                        onMouseLeave={(e) => {
+                                if (hasChanges) {
+                                  e.currentTarget.style.transform = "translateY(0)";
+                                  e.currentTarget.style.boxShadow = "none";
+                                }
+                              }}
+                            >
+                              {hasChanges ? "Сохранить изменения" : "Нет изменений"}
+                      </button>
+                          );
+                        })()}
+                      <button
+                        type="button"
+                          onClick={handleDeleteEvent}
+                        style={{
+                            padding: "0.75rem 1.25rem",
+                          borderRadius: "10px",
+                            border: "1px solid var(--card-border)",
+                            background: "var(--background)",
+                            color: "var(--foreground)",
+                            fontSize: "0.875rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "0.375rem",
+                            fontFamily: "'Manrope', sans-serif",
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "var(--muted)";
+                            e.currentTarget.style.borderColor = "var(--foreground)";
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "var(--background)";
+                            e.currentTarget.style.borderColor = "var(--card-border)";
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Удалить
+                        </button>
+                      </div>
+                      {/* Вторичное действие */}
                       <button
                         type="button"
                         onClick={handleCloseDrawer}
                         style={{
-                          flex: 1,
-                          padding: "0.75rem 1rem",
+                          width: "100%",
+                          padding: "0.625rem 1.25rem",
                           borderRadius: "10px",
-                          border: "1.5px solid var(--card-border)",
+                          border: "1px solid var(--card-border)",
                           background: "var(--background)",
-                          color: "var(--foreground)",
-                          fontSize: "0.875rem",
+                          color: "var(--muted-foreground)",
+                          fontSize: "0.8125rem",
                           fontWeight: 500,
                           cursor: "pointer",
                           transition: "all 0.2s ease",
+                          fontFamily: "'Manrope', sans-serif",
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.background = "var(--muted)";
+                          e.currentTarget.style.borderColor = "var(--foreground)";
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.background = "var(--background)";
+                          e.currentTarget.style.borderColor = "var(--card-border)";
                         }}
                       >
                         Отмена
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSaveEventChanges}
-                        style={{
-                          flex: 1,
-                          padding: "0.75rem 1rem",
-                          borderRadius: "10px",
-                          border: "1.5px solid transparent",
-                          background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
-                          color: "#fff",
-                          fontSize: "0.875rem",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          transition: "all 0.2s ease",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = "translateY(-1px)";
-                          e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.3)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = "translateY(0)";
-                          e.currentTarget.style.boxShadow = "none";
-                        }}
-                      >
-                        Сохранить
                       </button>
                     </div>
                   </div>
@@ -2200,8 +4518,8 @@ export default function ScheduleLoadPage() {
                             padding: "0.5rem 0.875rem",
                             borderRadius: "8px",
                             border: "1.5px solid",
-                            borderColor: newBookingStatus === status 
-                              ? STATUS_COLORS[status] 
+                              borderColor: newBookingStatus === status 
+                                ? STATUS_COLORS[status] 
                               : "transparent",
                             background: newBookingStatus === status
                               ? STATUS_COLORS[status] + "20"
@@ -2230,16 +4548,16 @@ export default function ScheduleLoadPage() {
                       ))}
                     </div>
 
-                    {/* Информация о времени и локации */}
+                    {/* Информация о дате, времени и локации */}
                     <div style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(2, 1fr)",
+                      display: "flex",
+                      flexDirection: "column",
                       gap: "0.625rem",
                     }}>
+                      {/* Дата и время */}
                       <div style={{
                         padding: "0.75rem 0.875rem",
                         borderRadius: "10px",
-                        background: "var(--muted)",
                         border: "1px solid var(--card-border)",
                       }}>
                         <div style={{
@@ -2250,24 +4568,38 @@ export default function ScheduleLoadPage() {
                           letterSpacing: "0.05em",
                           marginBottom: "0.375rem",
                         }}>
-                          Время
+                          Дата и время
                     </div>
                         <div style={{
                           fontSize: "0.9375rem",
                           fontWeight: 600,
                           color: "var(--foreground)",
                           display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
+                          flexDirection: "column",
+                          gap: "0.375rem",
                         }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <Calendar className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                            <span>
+                              {(() => {
+                                const today = new Date();
+                                const dayNames = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
+                                const dayName = dayNames[today.getDay()];
+                                const formattedDate = today.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+                                return `${dayName}, ${formattedDate}`;
+                              })()}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                           <Clock className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                          {selectedSlot.time}
+                            <span>{selectedSlot.time}</span>
                         </div>
                       </div>
+                      </div>
+                      {/* Локация */}
                       <div style={{
                         padding: "0.75rem 0.875rem",
                         borderRadius: "10px",
-                        background: "var(--muted)",
                         border: "1px solid var(--card-border)",
                       }}>
                         <div style={{
@@ -2289,7 +4621,9 @@ export default function ScheduleLoadPage() {
                           gap: "0.5rem",
                         }}>
                           <Activity className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                        {selectedSlot.groupLabel} · {selectedSlot.columnLabel}
+                        {selectedSlot.groupKey === "kids" && selectedKidsService
+                          ? `${selectedSlot.groupLabel} · ${selectedKidsService.name}`
+                          : `${selectedSlot.groupLabel} · ${selectedSlot.columnLabel}`}
                         </div>
                       </div>
                     </div>
@@ -2308,25 +4642,197 @@ export default function ScheduleLoadPage() {
                           <User className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
                           Клиент
                         </label>
+                      
+                      {/* Выбранный клиент */}
+                      {selectedClient ? (
+                        <div 
+                          onClick={() => {
+                            if (selectedClient.id) {
+                              router.push(`/body/clients/${selectedClient.id}`);
+                            }
+                          }}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.75rem",
+                            padding: "0.75rem 1rem",
+                            borderRadius: "10px",
+                            border: "1px solid var(--card-border)",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "var(--background)";
+                            e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.3)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "var(--muted)";
+                            e.currentTarget.style.borderColor = "var(--card-border)";
+                          }}
+                        >
+                          <div style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "8px",
+                            background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}>
+                            <User className="h-4 w-4" style={{ color: "#fff" }} />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: "0.875rem",
+                              fontWeight: 600,
+                              color: "var(--foreground)",
+                              marginBottom: "0.125rem",
+                            }}>
+                              {selectedClient.name}
+                            </div>
+                            <div style={{
+                              fontSize: "0.75rem",
+                              color: "var(--muted-foreground)",
+                            }}>
+                              {selectedClient.phone}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation(); // Останавливаем всплытие события
+                              setSelectedClient(null);
+                              setNewBookingClient("");
+                              setNewBookingPhone("");
+                              setClientSearchResults([]);
+                            }}
+                            style={{
+                              width: "24px",
+                              height: "24px",
+                              borderRadius: "6px",
+                              border: "none",
+                              background: "var(--background)",
+                              color: "var(--muted-foreground)",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                              e.currentTarget.style.color = "#ef4444";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "var(--background)";
+                              e.currentTarget.style.color = "var(--muted-foreground)";
+                            }}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
                       <div style={{ position: "relative" }}>
                         <input
                           type="text"
                           placeholder="Поиск клиента или введите имя"
                           value={newBookingClient}
-                          onChange={(event) => {
+                          onChange={async (event) => {
                             const value = event.target.value;
                             setNewBookingClient(value);
-                            const term = value.trim().toLowerCase();
-                            if (term.length < 2) {
+                            const term = value.trim();
+                            
+                            // Убираем минимальную длину - поиск работает даже с 1 символом
+                            if (term.length === 0) {
                               setClientSearchResults([]);
                               return;
                             }
-                            const results = MOCK_CLIENTS.filter((client) =>
-                              [client.name, client.phone].some((field) =>
-                                field.toLowerCase().includes(term),
-                              ),
-                            );
-                            setClientSearchResults(results);
+                            
+                            try {
+                              console.log("Searching clients:", {
+                                query: term,
+                                groupKey: selectedSlot?.groupKey,
+                              });
+                              
+                              // Для коворкинга сначала пробуем с direction="Coworking", но если не найдено - ищем без фильтра по direction
+                              let results: MockClient[] = [];
+                              
+                              if (selectedSlot?.groupKey === "cowork") {
+                                // Сначала ищем с фильтром Coworking и статусом Активный
+                                results = await fetchClientsFromApi<MockClient>({
+                                  query: term,
+                                  direction: "Coworking",
+                                  status: "Активный",
+                                });
+                                
+                                // Если не найдено, пробуем без фильтра по статусу (но все еще с direction="Coworking")
+                                if (results.length === 0) {
+                                  results = await fetchClientsFromApi<MockClient>({
+                                    query: term,
+                                    direction: "Coworking",
+                                    status: null,
+                                  });
+                                }
+                                
+                                // Если все еще не найдено, пробуем искать среди всех клиентов (без фильтра по direction)
+                                // Это нужно, так как клиенты могут быть созданы с direction="Body", но использоваться для коворкинга
+                                if (results.length === 0) {
+                                  results = await fetchClientsFromApi<MockClient>({
+                                    query: term,
+                                    direction: null,
+                                    status: null,
+                                  });
+                                }
+                              } else if (selectedSlot?.groupKey === "kids") {
+                                // Для Kids используем Body
+                                results = await fetchClientsFromApi<MockClient>({
+                                  query: term,
+                                direction: "Body",
+                                status: "Активный",
+                              });
+                                
+                                if (results.length === 0) {
+                                  results = await fetchClientsFromApi<MockClient>({
+                                    query: term,
+                                    direction: "Body",
+                                    status: null,
+                                  });
+                                }
+                              } else {
+                                // Для остальных используем Body
+                                results = await fetchClientsFromApi<MockClient>({
+                                  query: term,
+                                  direction: "Body",
+                                  status: "Активный",
+                                });
+                                
+                                if (results.length === 0) {
+                                  results = await fetchClientsFromApi<MockClient>({
+                                    query: term,
+                                    direction: "Body",
+                                    status: null,
+                                  });
+                                }
+                              }
+                              
+                              console.log("Clients search results:", {
+                                count: results.length,
+                                results: results.map(r => ({ 
+                                  id: r.id, 
+                                  name: r.name, 
+                                  phone: r.phone,
+                                  direction: (r as any).direction,
+                                  status: (r as any).status,
+                                })),
+                              });
+                              
+                              setClientSearchResults(results.slice(0, 10)); // Ограничиваем до 10 результатов
+                            } catch (error) {
+                              console.error("Failed to search clients:", error);
+                              toast.error({ text: "Не удалось загрузить клиентов из базы данных" });
+                              setClientSearchResults([]);
+                            }
                           }}
                             style={{
                               width: "100%",
@@ -2344,12 +4850,26 @@ export default function ScheduleLoadPage() {
                               e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
                             }}
                             onBlur={(e) => {
+                              // Не скрываем результаты сразу при blur - даем время для клика на результат
+                              setTimeout(() => {
+                                // Проверяем, не кликнули ли мы на результат
+                                const activeElement = document.activeElement;
+                                if (!activeElement || !activeElement.closest('[data-client-search-results]')) {
+                                  setClientSearchResults([]);
+                                }
+                              }, 200);
                               e.currentTarget.style.borderColor = "var(--card-border)";
                               e.currentTarget.style.boxShadow = "none";
                             }}
                         />
                         {clientSearchResults.length > 0 && (
-                            <div style={{
+                          <div 
+                            data-client-search-results
+                            onMouseDown={(e) => {
+                              // Предотвращаем blur при клике на результаты
+                              e.preventDefault();
+                            }}
+                            style={{
                               position: "absolute",
                               top: "calc(100% + 0.5rem)",
                               left: 0,
@@ -2358,7 +4878,7 @@ export default function ScheduleLoadPage() {
                               border: "1.5px solid var(--card-border)",
                               borderRadius: "12px",
                               boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                              zIndex: 10,
+                              zIndex: 1000,
                               maxHeight: "200px",
                               overflowY: "auto",
                             }}>
@@ -2366,10 +4886,14 @@ export default function ScheduleLoadPage() {
                               <button
                                 key={client.id}
                                 type="button"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault(); // Предотвращаем blur события
+                                  }}
                                 onClick={() => {
+                                    setSelectedClient(client);
                                   setNewBookingClient(client.name);
                                   setNewBookingPhone(client.phone);
-                                  setClientSearchResults([]);
+                                    setClientSearchResults([]); // Скрываем список после выбора
                                 }}
                                   style={{
                                     display: "flex",
@@ -2423,10 +4947,16 @@ export default function ScheduleLoadPage() {
                           </div>
                         )}
                       </div>
+                      )}
+                      
+                      {/* Кнопка "Добавить нового клиента" - видна только когда клиент НЕ выбран */}
+                      {!selectedClient && (
                         <button
                           type="button"
                           onClick={() => {
-                            // TODO: Открыть модальное окно добавления клиента
+                            // Открываем страницу клиентов в новом окне с параметром для открытия модального окна
+                            const url = `/body/clients?addClient=true&direction=${selectedSlot?.groupKey === "cowork" ? "Coworking" : selectedSlot?.groupKey === "kids" ? "Body" : "Body"}`;
+                            window.open(url, '_blank');
                           }}
                           style={{
                             marginTop: "0.375rem",
@@ -2458,86 +4988,106 @@ export default function ScheduleLoadPage() {
                           <Plus className="h-3.5 w-3.5" />
                           Добавить нового клиента
                       </button>
+                      )}
                     </div>
 
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                        <label style={{
-                          fontSize: "0.8125rem",
-                          fontWeight: 600,
-                          color: "var(--foreground)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                        }}>
-                          <Phone className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                          Телефон
-                        </label>
-                      <input
-                        type="tel"
-                        placeholder="+998 90 000 00 00"
-                        value={newBookingPhone}
-                        onChange={(event) => setNewBookingPhone(event.target.value)}
-                          style={{
-                            width: "100%",
-                            padding: "0.625rem 0.875rem",
-                            borderRadius: "10px",
-                            border: "1.5px solid var(--card-border)",
-                            background: "var(--background)",
-                            fontSize: "0.875rem",
+                      {/* Выбор услуги для Kids */}
+                      {selectedSlot?.groupKey === "kids" && kidsServices.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                          <label style={{
+                            fontSize: "0.8125rem",
+                            fontWeight: 600,
                             color: "var(--foreground)",
-                            outline: "none",
-                            transition: "all 0.2s ease",
-                          }}
-                          onFocus={(e) => {
-                            e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
-                            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
-                          }}
-                          onBlur={(e) => {
-                            e.currentTarget.style.borderColor = "var(--card-border)";
-                            e.currentTarget.style.boxShadow = "none";
-                          }}
-                      />
-                    </div>
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                          }}>
+                            <Activity className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                            Услуга
+                          </label>
+                          <select
+                            value={selectedKidsService?.id || ""}
+                            onChange={(e) => {
+                              const service = kidsServices.find(s => s.id === e.target.value);
+                              setSelectedKidsService(service || null);
+                              if (service) {
+                                setSelectedServicePrice(service.price);
+                                setPaymentTotal(service.price.toLocaleString("ru-RU").replace(/,/g, " "));
+                              } else {
+                                setSelectedServicePrice(null);
+                                setPaymentTotal("");
+                              }
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "0.625rem 0.875rem",
+                              borderRadius: "10px",
+                              border: "1.5px solid var(--card-border)",
+                              background: "var(--background)",
+                              fontSize: "0.875rem",
+                              color: "var(--foreground)",
+                              outline: "none",
+                              transition: "all 0.2s ease",
+                              cursor: "pointer",
+                            }}
+                            onFocus={(e) => {
+                              e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.currentTarget.style.borderColor = "var(--card-border)";
+                              e.currentTarget.style.boxShadow = "none";
+                            }}
+                          >
+                            <option value="">Выберите услугу</option>
+                            {kidsServices.map((service) => (
+                              <option key={service.id} value={service.id}>
+                                {service.name} - {service.price.toLocaleString("ru-RU")} сум
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
 
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                         <label style={{
                           fontSize: "0.8125rem",
                           fontWeight: 600,
                           color: "var(--foreground)",
-                          display: "flex",
+                      display: "flex",
                           alignItems: "center",
                           gap: "0.5rem",
                         }}>
                           <NotebookPen className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-                          Комментарий
+                        Комментарий
                         </label>
                       <textarea
                         rows={3}
                         placeholder="Примечание для менеджеров"
                         value={newBookingNote}
                         onChange={(event) => setNewBookingNote(event.target.value)}
-                          style={{
-                            width: "100%",
+                        style={{
+                          width: "100%",
                             padding: "0.625rem 0.875rem",
-                            borderRadius: "10px",
+                          borderRadius: "10px",
                             border: "1.5px solid var(--card-border)",
                             background: "var(--background)",
                             fontSize: "0.875rem",
                             color: "var(--foreground)",
-                            outline: "none",
+                          outline: "none",
                             transition: "all 0.2s ease",
-                            resize: "vertical",
+                          resize: "vertical",
                             fontFamily: "inherit",
-                          }}
-                          onFocus={(e) => {
+                        }}
+                        onFocus={(e) => {
                             e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
                             e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
-                          }}
-                          onBlur={(e) => {
+                        }}
+                        onBlur={(e) => {
                             e.currentTarget.style.borderColor = "var(--card-border)";
-                            e.currentTarget.style.boxShadow = "none";
-                          }}
-                        />
+                          e.currentTarget.style.boxShadow = "none";
+                        }}
+                      />
                       </div>
                     </div>
 
@@ -2547,32 +5097,32 @@ export default function ScheduleLoadPage() {
                       gap: "0.625rem",
                       paddingTop: "1rem",
                       borderTop: "1px solid var(--card-border)",
-                    }}>
-                      <button
-                        type="button"
+                      }}>
+                        <button
+                          type="button"
                         onClick={handleCloseDrawer}
-                        style={{
-                          flex: 1,
+                          style={{
+                            flex: 1,
                           padding: "0.75rem 1rem",
-                          borderRadius: "10px",
+                            borderRadius: "10px",
                           border: "1.5px solid var(--card-border)",
                           background: "var(--background)",
                           color: "var(--foreground)",
                           fontSize: "0.875rem",
                           fontWeight: 500,
-                          cursor: "pointer",
+                            cursor: "pointer",
                           transition: "all 0.2s ease",
-                        }}
-                        onMouseEnter={(e) => {
+                          }}
+                          onMouseEnter={(e) => {
                           e.currentTarget.style.background = "var(--muted)";
                           e.currentTarget.style.borderColor = "var(--card-border)";
-                        }}
-                        onMouseLeave={(e) => {
+                          }}
+                          onMouseLeave={(e) => {
                           e.currentTarget.style.background = "var(--background)";
-                        }}
-                      >
+                          }}
+                        >
                         Отмена
-                      </button>
+                        </button>
                       <button
                         type="button"
                         onClick={handleCreateBooking}
@@ -2602,11 +5152,2222 @@ export default function ScheduleLoadPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Drawer для Pilates Reformer */}
+                {drawerMode === "pilates" && selectedPilatesTrainer && (
+                  <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                    {/* Время */}
+                    <div style={{
+                      padding: "0.75rem 0.875rem",
+                      borderRadius: "10px",
+                      background: "var(--muted)",
+                      border: "1px solid var(--card-border)",
+                    }}>
+                      <div style={{
+                        fontSize: "0.6875rem",
+                        fontWeight: 600,
+                        color: "var(--muted-foreground)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: "0.375rem",
+                      }}>
+                        Время
+                      </div>
+                      <div style={{
+                        fontSize: "0.9375rem",
+                          fontWeight: 600,
+                          color: "var(--foreground)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                        }}>
+                        <Clock className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                        {selectedPilatesTrainer.time}
+                      </div>
+                    </div>
+
+                    {/* Тренер */}
+                    <div style={{
+                      padding: "0.75rem 0.875rem",
+                      borderRadius: "10px",
+                      background: "var(--muted)",
+                      border: "1px solid var(--card-border)",
+                    }}>
+                      <div style={{
+                        fontSize: "0.6875rem",
+                        fontWeight: 600,
+                        color: "var(--muted-foreground)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: "0.375rem",
+                      }}>
+                        Тренер
+                      </div>
+                      {!showTrainerSelect ? (
+                        <div style={{
+                          fontSize: "0.9375rem",
+                          fontWeight: 600,
+                          color: "var(--foreground)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                        }}>
+                          <User className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                          {selectedPilatesTrainer.trainer}
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                          <div style={{ position: "relative" }}>
+                      <input
+                              type="text"
+                              placeholder="Поиск тренера"
+                              value={trainerSearchQuery}
+                              onChange={(e) => setTrainerSearchQuery(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "0.625rem 0.875rem",
+                            borderRadius: "10px",
+                            border: "1.5px solid var(--card-border)",
+                            background: "var(--background)",
+                            fontSize: "0.875rem",
+                            color: "var(--foreground)",
+                            outline: "none",
+                              }}
+                            />
+                            {availableTrainers
+                              .filter(t => t.name.toLowerCase().includes(trainerSearchQuery.toLowerCase()))
+                              .map((trainer) => (
+                                <div
+                                  key={trainer.name}
+                                  onClick={async () => {
+                                    const newTrainerName = trainer.name;
+                                    const trainerObj = availableTrainers.find(t => t.name === newTrainerName);
+                                    
+                                    // Если есть ID записи из базы данных, обновляем через API
+                                    if (selectedPilatesTrainer.bookingId) {
+                                      try {
+                                        
+                                        const updateData: ScheduleBookingUpdate = {
+                                          trainer_id: trainerObj?.id || null,
+                                          trainer_name: newTrainerName,
+                                        };
+                                        
+                                        await updateScheduleBooking(selectedPilatesTrainer.bookingId, updateData);
+                                        
+                                        // Обновляем локальное состояние
+                                    setScheduleTrainers(prev => prev.map(t =>
+                                      t === selectedPilatesTrainer
+                                            ? { ...t, trainer: newTrainerName }
+                                        : t
+                                    ));
+                                        setSelectedPilatesTrainer({ ...selectedPilatesTrainer, trainer: newTrainerName });
+                                        
+                                        toast.success({ text: "Тренер успешно изменен" });
+                                        
+                                        // Перезагружаем записи из API
+                                        await loadBookingsFromApi(viewMode === "overview");
+                                        
+                                        // Обновляем selectedPilatesTrainer после перезагрузки
+                                        const updatedTrainers = scheduleTrainers;
+                                            if (selectedPilatesTrainer && selectedPilatesTrainer.bookingId) {
+                                          // Найдем обновленную запись после перезагрузки
+                                          setTimeout(() => {
+                                            const updated = scheduleTrainers.find(t => t.bookingId === selectedPilatesTrainer.bookingId);
+                                              if (updated) {
+                                                setSelectedPilatesTrainer(updated);
+                                              }
+                                          }, 100);
+                                            }
+                                      } catch (error) {
+                                        console.error("Failed to update trainer:", error);
+                                        toast.error({ text: "Не удалось изменить тренера" });
+                                        return;
+                                      }
+                                    } else {
+                                      // Локальная запись - обновляем только локально
+                                      setScheduleTrainers(prev => prev.map(t =>
+                                        t === selectedPilatesTrainer
+                                          ? { ...t, trainer: newTrainerName }
+                                          : t
+                                      ));
+                                      setSelectedPilatesTrainer({ ...selectedPilatesTrainer, trainer: newTrainerName });
+                                    }
+                                    
+                                    setShowTrainerSelect(false);
+                                    setTrainerSearchQuery("");
+                                  }}
+                                  style={{
+                                    padding: "0.75rem",
+                                    borderRadius: "8px",
+                                    border: "1px solid var(--card-border)",
+                                    background: "var(--panel)",
+                                    cursor: "pointer",
+                                    marginTop: "0.5rem",
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <div>
+                                    <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>{trainer.name}</div>
+                                    <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)", marginTop: "0.25rem" }}>
+                                      {trainer.phone}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Кнопки действий */}
+                    <div style={{
+                      display: "flex",
+                      gap: "0.625rem",
+                      paddingTop: "1rem",
+                      borderTop: "1px solid var(--card-border)",
+                    }}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          
+                          if (selectedPilatesTrainer?.bookingId) {
+                            // Сохраняем данные для удаления в отдельном состоянии
+                            setPilatesDeleteData({
+                              bookingId: selectedPilatesTrainer.bookingId,
+                              trainer: selectedPilatesTrainer.trainer,
+                              time: selectedPilatesTrainer.time,
+                              dayKey: selectedPilatesTrainer.dayKey,
+                              date: selectedPilatesTrainer.date,
+                            });
+                            
+                            // Открываем модальное окно с небольшой задержкой, чтобы клик не попал на overlay
+                            setTimeout(() => {
+                              setDeleteModalJustOpened(true);
+                          setShowDeleteModal(true);
+                              // Сбрасываем флаг защиты через 500ms
+                              setTimeout(() => {
+                                setDeleteModalJustOpened(false);
+                              }, 500);
+                            }, 100);
+                          }
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: "0.75rem 1rem",
+                          borderRadius: "10px",
+                          border: "1.5px solid var(--card-border)",
+                          background: "var(--background)",
+                          color: "#ef4444",
+                          fontSize: "0.875rem",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "0.5rem",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                          e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.3)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "var(--background)";
+                          e.currentTarget.style.borderColor = "var(--card-border)";
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Удалить
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowTrainerSelect(!showTrainerSelect);
+                        }}
+                        style={{
+                          flex: 1,
+                          padding: "0.75rem 1rem",
+                          borderRadius: "10px",
+                          border: "1.5px solid var(--card-border)",
+                          background: "var(--background)",
+                          color: "var(--foreground)",
+                          fontSize: "0.875rem",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "var(--muted)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "var(--background)";
+                        }}
+                      >
+                        {showTrainerSelect ? "Отмена" : "Поменять тренера"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Drawer для Body Mind */}
+                {drawerMode === "bodymind" && selectedBodymindGroup && (
+                  <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                    {/* Название группы */}
+                    <div style={{
+                      padding: "0.75rem 0.875rem",
+                      borderRadius: "10px",
+                      background: "var(--muted)",
+                      border: "1px solid var(--card-border)",
+                    }}>
+                      <div style={{
+                        fontSize: "0.6875rem",
+                        fontWeight: 600,
+                        color: "var(--muted-foreground)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: "0.375rem",
+                      }}>
+                        Название
+                      </div>
+                      {!isEditingBodymind ? (
+                        <div style={{
+                          fontSize: "0.9375rem",
+                          fontWeight: 600,
+                          color: "var(--foreground)",
+                        }}>
+                          {selectedBodymindGroup.name}
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={editingBodymindName}
+                          onChange={(e) => setEditingBodymindName(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "0.625rem 0.875rem",
+                            borderRadius: "10px",
+                            border: "1.5px solid var(--card-border)",
+                            background: "var(--background)",
+                            fontSize: "0.875rem",
+                            color: "var(--foreground)",
+                            outline: "none",
+                          }}
+                          onFocus={(e) => {
+                            e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                          }}
+                          onBlur={(e) => {
+                            e.currentTarget.style.borderColor = "var(--card-border)";
+                            e.currentTarget.style.boxShadow = "none";
+                          }}
+                      />
+                      )}
+                    </div>
+
+                    {/* Тренер */}
+                    <div style={{
+                      padding: "0.75rem 0.875rem",
+                      borderRadius: "10px",
+                      background: "var(--muted)",
+                      border: "1px solid var(--card-border)",
+                    }}>
+                      <div style={{
+                        fontSize: "0.6875rem",
+                        fontWeight: 600,
+                        color: "var(--muted-foreground)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: "0.375rem",
+                      }}>
+                        Тренер
+                      </div>
+                      {!isEditingBodymind ? (
+                        <div style={{
+                          fontSize: "0.9375rem",
+                          fontWeight: 600,
+                          color: "var(--foreground)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                        }}>
+                          <User className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                          {selectedBodymindGroup.trainer}
+                        </div>
+                      ) : !showBodymindTrainerSelect ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                          <div style={{
+                            fontSize: "0.9375rem",
+                          fontWeight: 600,
+                          color: "var(--foreground)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                        }}>
+                            <User className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                            {editingBodymindTrainer}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowBodymindTrainerSelect(true)}
+                            style={{
+                              padding: "0.5rem 0.75rem",
+                              borderRadius: "8px",
+                              border: "1px solid var(--card-border)",
+                              background: "var(--background)",
+                              color: "var(--foreground)",
+                              fontSize: "0.8125rem",
+                              fontWeight: 500,
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                              alignSelf: "flex-start",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "var(--muted)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "var(--background)";
+                            }}
+                          >
+                            Выбрать тренера
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                          <div style={{ position: "relative" }}>
+                            <input
+                              type="text"
+                              placeholder="Поиск тренера"
+                              value={bodymindTrainerSearchQuery}
+                              onChange={(e) => setBodymindTrainerSearchQuery(e.target.value)}
+                          style={{
+                            width: "100%",
+                            padding: "0.625rem 0.875rem",
+                            borderRadius: "10px",
+                            border: "1.5px solid var(--card-border)",
+                            background: "var(--background)",
+                            fontSize: "0.875rem",
+                            color: "var(--foreground)",
+                            outline: "none",
+                              }}
+                            />
+                            <div style={{ marginTop: "0.5rem", display: "flex", flexDirection: "column", gap: "0.5rem", maxHeight: "200px", overflowY: "auto" }}>
+                              {availableTrainers
+                                .filter(t => t.name.toLowerCase().includes(bodymindTrainerSearchQuery.toLowerCase()))
+                                .map((trainer) => (
+                                  <div
+                                    key={trainer.name}
+                                    onClick={() => {
+                                      setEditingBodymindTrainer(trainer.name);
+                                      setShowBodymindTrainerSelect(false);
+                                      setBodymindTrainerSearchQuery("");
+                                    }}
+                                    style={{
+                                      padding: "0.75rem",
+                                      borderRadius: "8px",
+                                      border: "1px solid var(--card-border)",
+                                      background: "var(--panel)",
+                                      cursor: "pointer",
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                    }}
+                                  >
+                                    <div>
+                                      <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>{trainer.name}</div>
+                                      <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)", marginTop: "0.25rem" }}>
+                                        {trainer.phone}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Вместимость */}
+                    <div style={{
+                      padding: "0.75rem 0.875rem",
+                      borderRadius: "10px",
+                      background: "var(--muted)",
+                      border: "1px solid var(--card-border)",
+                    }}>
+                      <div style={{
+                        fontSize: "0.6875rem",
+                        fontWeight: 600,
+                        color: "var(--muted-foreground)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: "0.375rem",
+                      }}>
+                        Вместимость
+                      </div>
+                      {!isEditingBodymind ? (
+                        <div style={{
+                          fontSize: "0.9375rem",
+                          fontWeight: 600,
+                          color: "var(--foreground)",
+                        }}>
+                          {selectedBodymindGroup.capacity}
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                          <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>
+                            Текущее: {editingBodymindClients.length} / Максимум:
+                          </div>
+                        <input
+                            type="number"
+                            min="1"
+                            max="100"
+                            value={editingBodymindCapacity.split('/')[1] || editingBodymindCapacity || "10"}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "" || (parseInt(value) > 0 && parseInt(value) <= 100)) {
+                                setEditingBodymindCapacity(value);
+                              }
+                            }}
+                            placeholder="10"
+                          style={{
+                            width: "100%",
+                            padding: "0.625rem 0.875rem",
+                            borderRadius: "10px",
+                            border: "1.5px solid var(--card-border)",
+                            background: "var(--background)",
+                            fontSize: "0.875rem",
+                            color: "var(--foreground)",
+                            outline: "none",
+                          }}
+                          onFocus={(e) => {
+                            e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                            e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                          }}
+                          onBlur={(e) => {
+                            e.currentTarget.style.borderColor = "var(--card-border)";
+                            e.currentTarget.style.boxShadow = "none";
+                          }}
+                        />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Дата и время */}
+                    <div style={{
+                      padding: "0.75rem 0.875rem",
+                      borderRadius: "10px",
+                      background: "var(--muted)",
+                      border: "1px solid var(--card-border)",
+                    }}>
+                      <div style={{
+                        fontSize: "0.6875rem",
+                        fontWeight: 600,
+                        color: "var(--muted-foreground)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: "0.375rem",
+                      }}>
+                        Дата и время
+                      </div>
+                      <div style={{
+                        fontSize: "0.9375rem",
+                        fontWeight: 600,
+                        color: "var(--foreground)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.375rem",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <Calendar className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                          <span>
+                            {(() => {
+                              const dayNames = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
+                              const dayIndex = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].indexOf(selectedBodymindGroup.dayKey);
+                              const dayName = dayIndex !== -1 ? dayNames[dayIndex] : selectedBodymindGroup.dayKey;
+                              const date = new Date(selectedBodymindGroup.date);
+                              const formattedDate = date.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+                              return `${dayName}, ${formattedDate}`;
+                            })()}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <Clock className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                          <span>{selectedBodymindGroup.time}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Клиенты */}
+                    <div style={{
+                      padding: "0.75rem 0.875rem",
+                      borderRadius: "10px",
+                      border: "1px solid var(--card-border)",
+                    }}>
+                      <div style={{
+                        fontSize: "0.6875rem",
+                        fontWeight: 600,
+                        color: "var(--muted-foreground)",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        marginBottom: "0.375rem",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}>
+                        <span>Клиенты</span>
+                        <span style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>
+                          {editingBodymindClients.length}/{editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || 0}
+                        </span>
+                      </div>
+                      {!isEditingBodymind ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                          {editingBodymindClients.length > 0 ? (
+                            editingBodymindClients.map((client) => (
+                              <div
+                                key={client.id}
+                                style={{
+                                  padding: "0.5rem 0.75rem",
+                                  borderRadius: "8px",
+                                  background: "var(--muted)",
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <div>
+                                  <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>{client.name}</div>
+                                  <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>{client.phone}</div>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div style={{
+                              fontSize: "0.875rem",
+                              color: "var(--muted-foreground)",
+                            }}>
+                              Клиенты не добавлены
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                          {editingBodymindClients.length > 0 && (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                              {editingBodymindClients.map((client) => (
+                                <div
+                                  key={client.id}
+                                  style={{
+                                    padding: "0.5rem 0.75rem",
+                                    borderRadius: "8px",
+                                    background: "var(--muted)",
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  <div>
+                                    <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>{client.name}</div>
+                                    <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>{client.phone}</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingBodymindClients(prev => prev.filter(c => c.id !== client.id));
+                                    }}
+                                    style={{
+                                      padding: "0.25rem 0.5rem",
+                                      borderRadius: "6px",
+                                      border: "none",
+                                      background: "var(--background)",
+                                      color: "#ef4444",
+                                      fontSize: "0.75rem",
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    Удалить
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {!showEditingBodymindClientSelect ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const maxCap = parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0");
+                                if (editingBodymindClients.length >= maxCap) {
+                                  toast.error({ text: `Достигнута максимальная вместимость: ${maxCap} человек` });
+                                  return;
+                                }
+                                setShowEditingBodymindClientSelect(true);
+                              }}
+                              disabled={editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0")}
+                              style={{
+                                padding: "0.5rem 0.75rem",
+                                borderRadius: "8px",
+                                border: "1px solid var(--card-border)",
+                                background: editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0") ? "var(--muted)" : "var(--background)",
+                                color: editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0") ? "var(--muted-foreground)" : "var(--foreground)",
+                                fontSize: "0.8125rem",
+                                fontWeight: 500,
+                                cursor: editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0") ? "not-allowed" : "pointer",
+                                transition: "all 0.2s ease",
+                                alignSelf: "flex-start",
+                              }}
+                            >
+                              {editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0") ? "Вместимость заполнена" : "Добавить клиента"}
+                            </button>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                              <div style={{ position: "relative" }}>
+                                <input
+                                  type="text"
+                                  placeholder="Поиск клиента"
+                                  value={editingBodymindClientSearchQuery}
+                                  onChange={async (e) => {
+                                    const value = e.target.value;
+                                    setEditingBodymindClientSearchQuery(value);
+                                    if (value.trim().length > 0) {
+                                      try {
+                                        const results = await fetchClientsFromApi<MockClient>({
+                                          query: value.trim(),
+                                          direction: "Body",
+                                        });
+                                        setEditingBodymindClientSearchResults(results);
+                                      } catch (error) {
+                                        console.error("Failed to search clients:", error);
+                                        setEditingBodymindClientSearchResults([]);
+                                      }
+                                    } else {
+                                      setEditingBodymindClientSearchResults([]);
+                                    }
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    padding: "0.625rem 0.875rem",
+                                    borderRadius: "10px",
+                                    border: "1.5px solid var(--card-border)",
+                                    background: "var(--background)",
+                                    fontSize: "0.875rem",
+                                    color: "var(--foreground)",
+                                    outline: "none",
+                                  }}
+                                />
+                                {editingBodymindClientSearchResults.length > 0 && (
+                                  <div style={{
+                                    position: "absolute",
+                                    top: "100%",
+                                    left: 0,
+                                    right: 0,
+                                    marginTop: "0.5rem",
+                                    borderRadius: "10px",
+                                    border: "1px solid var(--card-border)",
+                                    background: "var(--panel)",
+                                    maxHeight: "200px",
+                                    overflowY: "auto",
+                                    zIndex: 50,
+                                  }}>
+                                    {editingBodymindClientSearchResults
+                                      .filter(c => !editingBodymindClients.some(selected => selected.id === c.id))
+                                      .map((client) => (
+                                        <div
+                                          key={client.id}
+                                          onClick={() => {
+                                            const maxCap = parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0");
+                                            if (editingBodymindClients.length >= maxCap) {
+                                              toast.error({ text: `Достигнута максимальная вместимость: ${maxCap} человек` });
+                                              return;
+                                            }
+                                            setEditingBodymindClients(prev => [...prev, client]);
+                                            setEditingBodymindClientSearchQuery("");
+                                            setEditingBodymindClientSearchResults([]);
+                                            setShowEditingBodymindClientSelect(false);
+                                          }}
+                                          style={{
+                                            padding: "0.75rem",
+                                            borderRadius: "8px",
+                                            border: "1px solid var(--card-border)",
+                                            background: "var(--panel)",
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                          }}
+                                        >
+                                          <div>
+                                            <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>{client.name}</div>
+                                            <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)", marginTop: "0.25rem" }}>
+                                              {client.phone}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowEditingBodymindClientSelect(false);
+                                  setEditingBodymindClientSearchQuery("");
+                                  setEditingBodymindClientSearchResults([]);
+                                }}
+                                style={{
+                                  padding: "0.5rem 0.75rem",
+                                  borderRadius: "8px",
+                                  border: "1px solid var(--card-border)",
+                                  background: "var(--background)",
+                                  color: "var(--foreground)",
+                                  fontSize: "0.8125rem",
+                                  fontWeight: 500,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Отмена
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Кнопки действий */}
+                    <div style={{
+                      display: "flex",
+                      gap: "0.625rem",
+                      paddingTop: "1rem",
+                      borderTop: "1px solid var(--card-border)",
+                    }}>
+                      {!isEditingBodymind ? (
+                        <>
+                      <button
+                        type="button"
+                            onClick={() => {
+                              setShowDeleteModal(true);
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "0.75rem 1rem",
+                              borderRadius: "10px",
+                              border: "1.5px solid var(--card-border)",
+                              background: "var(--background)",
+                              color: "#ef4444",
+                              fontSize: "0.875rem",
+                              fontWeight: 500,
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "0.5rem",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                              e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.3)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "var(--background)";
+                              e.currentTarget.style.borderColor = "var(--card-border)";
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Удалить
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setIsEditingBodymind(true);
+                              setEditingBodymindName(selectedBodymindGroup.name);
+                              setEditingBodymindTrainer(selectedBodymindGroup.trainer);
+                              // Извлекаем максимальную вместимость из строки "текущее/максимум"
+                              const maxCapacity = selectedBodymindGroup.capacity.split('/')[1] || selectedBodymindGroup.capacity || "10";
+                              setEditingBodymindCapacity(maxCapacity);
+                              
+                              // Загружаем полные данные записи из API, включая клиентов
+                              if (selectedBodymindGroup.bookingId) {
+                                try {
+                                  const booking = await fetchScheduleBookingById(selectedBodymindGroup.bookingId);
+                                  if (booking) {
+                                    // Преобразуем клиентов из API в формат MockClient
+                                    const clients: MockClient[] = booking.clients.map(c => ({
+                                      id: c.client_id,
+                                      name: c.client_name,
+                                      phone: c.client_phone || "",
+                                    } as MockClient));
+                                    setEditingBodymindClients(clients);
+                                  }
+                                } catch (error) {
+                                  console.error("Failed to load booking details:", error);
+                                }
+                              }
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "0.75rem 1rem",
+                              borderRadius: "10px",
+                              border: "1.5px solid transparent",
+                              background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                              color: "#fff",
+                              fontSize: "0.875rem",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.transform = "translateY(-1px)";
+                              e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.3)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = "translateY(0)";
+                              e.currentTarget.style.boxShadow = "none";
+                            }}
+                          >
+                            Редактировать
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsEditingBodymind(false);
+                              setEditingBodymindName(selectedBodymindGroup.name);
+                              setEditingBodymindTrainer(selectedBodymindGroup.trainer);
+                              setEditingBodymindCapacity(selectedBodymindGroup.capacity);
+                              setShowBodymindTrainerSelect(false);
+                              setBodymindTrainerSearchQuery("");
+                            }}
+                        style={{
+                          flex: 1,
+                          padding: "0.75rem 1rem",
+                          borderRadius: "10px",
+                          border: "1.5px solid var(--card-border)",
+                          background: "var(--background)",
+                          color: "var(--foreground)",
+                          fontSize: "0.875rem",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "var(--muted)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "var(--background)";
+                        }}
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        type="button"
+                            onClick={async () => {
+                              if (selectedBodymindGroup && selectedBodymindGroup.bookingId) {
+                                try {
+                                  // Находим ID тренера
+                                  const trainer = availableTrainers.find(t => t.name === editingBodymindTrainer);
+                                  
+                                  // Преобразуем клиентов в формат для API
+                                  const clientsForApi = editingBodymindClients.map(client => ({
+                                    client_id: client.id,
+                                    client_name: client.name,
+                                    client_phone: client.phone || null,
+                                  }));
+                                  
+                                  // Парсим вместимость (теперь это просто число)
+                                  const maxCap = parseInt(editingBodymindCapacity) || 10;
+                                  
+                                  // Проверка вместимости
+                                  if (clientsForApi.length > maxCap) {
+                                    toast.error({ text: `Превышена вместимость: добавлено ${clientsForApi.length} клиентов, максимум ${maxCap}` });
+                                    return;
+                                  }
+                                  
+                                  const updateData: ScheduleBookingUpdate = {
+                                    service_name: editingBodymindName,
+                                    trainer_id: trainer?.id || null,
+                                    trainer_name: editingBodymindTrainer,
+                                    clients: clientsForApi,
+                                    max_capacity: maxCap,
+                                  };
+                                  
+                                  await updateScheduleBooking(selectedBodymindGroup.bookingId, updateData);
+                                  
+                                  // Обновляем локальное состояние
+                                  const newCapacity = `${clientsForApi.length}/${maxCap}`;
+                                setScheduleGroups(prev => prev.map(g => 
+                                  g === selectedBodymindGroup
+                                    ? { 
+                                        ...g, 
+                                        name: editingBodymindName,
+                                        trainer: editingBodymindTrainer,
+                                          capacity: newCapacity,
+                                      }
+                                    : g
+                                ));
+                                setSelectedBodymindGroup({ 
+                                  ...selectedBodymindGroup, 
+                                  name: editingBodymindName,
+                                  trainer: editingBodymindTrainer,
+                                    capacity: newCapacity,
+                                });
+                                  
+                                  // Перезагружаем данные из API
+                                  await loadBookingsFromApi(viewMode === "overview");
+                                  
+                                setIsEditingBodymind(false);
+                                setShowBodymindTrainerSelect(false);
+                                setBodymindTrainerSearchQuery("");
+                                  setShowEditingBodymindClientSelect(false);
+                                  setEditingBodymindClientSearchQuery("");
+                                  
+                                  toast.success({ text: "Запись успешно обновлена" });
+                                } catch (error) {
+                                  console.error("Failed to update BodyMind booking:", error);
+                                  toast.error({ text: `Не удалось обновить запись: ${error instanceof Error ? error.message : "Неизвестная ошибка"}` });
+                                }
+                              }
+                            }}
+                        style={{
+                          flex: 1,
+                          padding: "0.75rem 1rem",
+                          borderRadius: "10px",
+                          border: "1.5px solid transparent",
+                          background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                          color: "#fff",
+                          fontSize: "0.875rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "translateY(-1px)";
+                          e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.3)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "translateY(0)";
+                          e.currentTarget.style.boxShadow = "none";
+                        }}
+                      >
+                            Сохранить
+                      </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Drawer для создания новой записи в расписании */}
+                {drawerMode === "create-schedule" && (
+                  <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                    {/* Выбор категории */}
+                    {!selectedScheduleCategory ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        <div style={{
+                          fontSize: "0.6875rem",
+                          fontWeight: 600,
+                          color: "var(--muted-foreground)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          marginBottom: "0.5rem",
+                        }}>
+                          Выберите категорию
+              </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedScheduleCategory("bodymind")}
+                          style={{
+                            padding: "1rem",
+                            borderRadius: "10px",
+                            border: "1.5px solid var(--card-border)",
+                            color: "var(--foreground)",
+                            fontSize: "0.875rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            textAlign: "left",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "rgba(99, 102, 241, 0.1)";
+                            e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.3)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "var(--muted)";
+                            e.currentTarget.style.borderColor = "var(--card-border)";
+                          }}
+                        >
+                          Body Mind
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedScheduleCategory("pilates")}
+                          style={{
+                            padding: "1rem",
+                            borderRadius: "10px",
+                            border: "1.5px solid var(--card-border)",
+                            color: "var(--foreground)",
+                            fontSize: "0.875rem",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            textAlign: "left",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "rgba(16, 185, 129, 0.1)";
+                            e.currentTarget.style.borderColor = "rgba(16, 185, 129, 0.3)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "var(--muted)";
+                            e.currentTarget.style.borderColor = "var(--card-border)";
+                          }}
+                        >
+                          Pilates Reformer
+                        </button>
+            </div>
+                    ) : selectedScheduleCategory === "bodymind" ? (
+                      <>
+                        {/* Название группы */}
+                        <div style={{
+                          padding: "0.75rem 0.875rem",
+                          borderRadius: "10px",
+                          border: "1px solid var(--card-border)",
+                        }}>
+                          <div style={{
+                            fontSize: "0.6875rem",
+                            fontWeight: 600,
+                            color: "var(--muted-foreground)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            marginBottom: "0.375rem",
+                          }}>
+                            Название
+                          </div>
+                          <input
+                            type="text"
+                            value={newBodymindName}
+                            onChange={(e) => setNewBodymindName(e.target.value)}
+                            placeholder="Например: Йога для начинающих"
+                            style={{
+                              width: "100%",
+                              padding: "0.625rem 0.875rem",
+                              borderRadius: "10px",
+                              border: "1.5px solid var(--card-border)",
+                              background: "var(--background)",
+                              fontSize: "0.875rem",
+                              color: "var(--foreground)",
+                              outline: "none",
+                            }}
+                            onFocus={(e) => {
+                              e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.currentTarget.style.borderColor = "var(--card-border)";
+                              e.currentTarget.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+
+                        {/* Тренер */}
+                        <div style={{
+                          padding: "0.75rem 0.875rem",
+                          borderRadius: "10px",
+                          border: "1px solid var(--card-border)",
+                        }}>
+                          <div style={{
+                            fontSize: "0.6875rem",
+                            fontWeight: 600,
+                            color: "var(--muted-foreground)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            marginBottom: "0.375rem",
+                          }}>
+                            Тренер
+                          </div>
+                          {!showNewBodymindTrainerSelect ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                              {newBodymindTrainer ? (
+                                <div style={{
+                                  fontSize: "0.9375rem",
+                                  fontWeight: 600,
+                                  color: "var(--foreground)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.5rem",
+                                }}>
+                                  <User className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                                  {newBodymindTrainer}
+                                </div>
+                              ) : (
+                                <div style={{
+                                  fontSize: "0.875rem",
+                                  color: "var(--muted-foreground)",
+                                }}>
+                                  Тренер не выбран
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setShowNewBodymindTrainerSelect(true)}
+                                style={{
+                                  padding: "0.5rem 0.75rem",
+                                  borderRadius: "8px",
+                                  border: "1px solid var(--card-border)",
+                                  background: "var(--background)",
+                                  color: "var(--foreground)",
+                                  fontSize: "0.8125rem",
+                                  fontWeight: 500,
+                                  cursor: "pointer",
+                                  transition: "all 0.2s ease",
+                                  alignSelf: "flex-start",
+                                }}
+                              >
+                                {newBodymindTrainer ? "Изменить тренера" : "Выбрать тренера"}
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                              <div style={{ position: "relative" }}>
+                          <input
+                            type="text"
+                                  placeholder="Поиск тренера"
+                                  value={newBodymindTrainerSearchQuery}
+                                  onChange={(e) => setNewBodymindTrainerSearchQuery(e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "0.625rem 0.875rem",
+                              borderRadius: "10px",
+                              border: "1.5px solid var(--card-border)",
+                              background: "var(--background)",
+                              fontSize: "0.875rem",
+                              color: "var(--foreground)",
+                              outline: "none",
+                            }}
+                                />
+                                <div style={{ marginTop: "0.5rem", display: "flex", flexDirection: "column", gap: "0.5rem", maxHeight: "200px", overflowY: "auto" }}>
+                                  {availableTrainers
+                                    .filter(t => t.name.toLowerCase().includes(newBodymindTrainerSearchQuery.toLowerCase()))
+                                    .map((trainer) => (
+                                      <div
+                                        key={trainer.name}
+                                        onClick={() => {
+                                          setNewBodymindTrainer(trainer.name);
+                                          setShowNewBodymindTrainerSelect(false);
+                                          setNewBodymindTrainerSearchQuery("");
+                                        }}
+                                        style={{
+                                          padding: "0.75rem",
+                                          borderRadius: "8px",
+                                          border: "1px solid var(--card-border)",
+                                          background: "var(--panel)",
+                                          cursor: "pointer",
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          alignItems: "center",
+                                        }}
+                                      >
+                                        <div>
+                                          <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>{trainer.name}</div>
+                                          <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)", marginTop: "0.25rem" }}>
+                                            {trainer.phone}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Вместимость */}
+                        <div style={{
+                          padding: "0.75rem 0.875rem",
+                          borderRadius: "10px",
+                          border: "1px solid var(--card-border)",
+                        }}>
+                          <div style={{
+                            fontSize: "0.6875rem",
+                            fontWeight: 600,
+                            color: "var(--muted-foreground)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            marginBottom: "0.375rem",
+                          }}>
+                            Вместимость (максимум человек)
+                          </div>
+                          <input
+                            type="number"
+                            min="1"
+                            value={newBodymindCapacity}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "" || (parseInt(value) > 0 && parseInt(value) <= 100)) {
+                                setNewBodymindCapacity(value);
+                              }
+                            }}
+                            placeholder="10"
+                            style={{
+                              width: "100%",
+                              padding: "0.625rem 0.875rem",
+                              borderRadius: "10px",
+                              border: "1.5px solid var(--card-border)",
+                              background: "var(--background)",
+                              fontSize: "0.875rem",
+                              color: "var(--foreground)",
+                              outline: "none",
+                            }}
+                            onFocus={(e) => {
+                              e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                              e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                            }}
+                            onBlur={(e) => {
+                              e.currentTarget.style.borderColor = "var(--card-border)";
+                              e.currentTarget.style.boxShadow = "none";
+                            }}
+                          />
+                        </div>
+
+                        {/* Клиенты */}
+                        <div style={{
+                          padding: "0.75rem 0.875rem",
+                          borderRadius: "10px",
+                          border: "1px solid var(--card-border)",
+                        }}>
+                          <div style={{
+                            fontSize: "0.6875rem",
+                            fontWeight: 600,
+                            color: "var(--muted-foreground)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            marginBottom: "0.375rem",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}>
+                            <span>Клиенты</span>
+                            <span style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>
+                              {newBodymindClients.length}/{newBodymindCapacity || 0}
+                            </span>
+                          </div>
+                          {!showNewBodymindClientSelect ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                              {newBodymindClients.length > 0 ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                                  {newBodymindClients.map((client) => (
+                                    <div
+                                      key={client.id}
+                                      style={{
+                                        padding: "0.5rem 0.75rem",
+                                        borderRadius: "8px",
+                                        background: "var(--muted)",
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      <div>
+                                        <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>{client.name}</div>
+                                        <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>{client.phone}</div>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setNewBodymindClients(prev => prev.filter(c => c.id !== client.id));
+                                        }}
+                                        style={{
+                                          padding: "0.25rem 0.5rem",
+                                          borderRadius: "6px",
+                                          border: "none",
+                                          background: "var(--background)",
+                                          color: "#ef4444",
+                                          fontSize: "0.75rem",
+                                          cursor: "pointer",
+                                        }}
+                                      >
+                                        Удалить
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div style={{
+                                  fontSize: "0.875rem",
+                                  color: "var(--muted-foreground)",
+                                }}>
+                                  Клиенты не выбраны
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const maxCap = parseInt(newBodymindCapacity) || 0;
+                                  if (newBodymindClients.length >= maxCap) {
+                                    toast.error({ text: `Достигнута максимальная вместимость: ${maxCap} человек` });
+                                    return;
+                                  }
+                                  setShowNewBodymindClientSelect(true);
+                                }}
+                                disabled={newBodymindClients.length >= (parseInt(newBodymindCapacity) || 0)}
+                                style={{
+                                  padding: "0.5rem 0.75rem",
+                                  borderRadius: "8px",
+                                  border: "1px solid var(--card-border)",
+                                  background: newBodymindClients.length >= (parseInt(newBodymindCapacity) || 0) ? "var(--muted)" : "var(--background)",
+                                  color: newBodymindClients.length >= (parseInt(newBodymindCapacity) || 0) ? "var(--muted-foreground)" : "var(--foreground)",
+                                  fontSize: "0.8125rem",
+                                  fontWeight: 500,
+                                  cursor: newBodymindClients.length >= (parseInt(newBodymindCapacity) || 0) ? "not-allowed" : "pointer",
+                                  transition: "all 0.2s ease",
+                                  alignSelf: "flex-start",
+                                }}
+                              >
+                                {newBodymindClients.length >= (parseInt(newBodymindCapacity) || 0) ? "Вместимость заполнена" : "Добавить клиента"}
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                              <div style={{ position: "relative" }}>
+                                <input
+                                  type="text"
+                                  placeholder="Поиск клиента"
+                                  value={newBodymindClientSearchQuery}
+                                  onChange={async (e) => {
+                                    const value = e.target.value;
+                                    setNewBodymindClientSearchQuery(value);
+                                    if (value.trim().length > 0) {
+                                      try {
+                                        const results = await fetchClientsFromApi<MockClient>({
+                                          query: value.trim(),
+                                          direction: "Body",
+                                        });
+                                        setNewBodymindClientSearchResults(results);
+                                      } catch (error) {
+                                        console.error("Failed to search clients:", error);
+                                        setNewBodymindClientSearchResults([]);
+                                      }
+                                    } else {
+                                      setNewBodymindClientSearchResults([]);
+                                    }
+                                  }}
+                                  style={{
+                                    width: "100%",
+                                    padding: "0.625rem 0.875rem",
+                                    borderRadius: "10px",
+                                    border: "1.5px solid var(--card-border)",
+                                    background: "var(--background)",
+                                    fontSize: "0.875rem",
+                                    color: "var(--foreground)",
+                                    outline: "none",
+                                  }}
+                                />
+                                {newBodymindClientSearchResults.length > 0 && (
+                                  <div style={{
+                                    position: "absolute",
+                                    top: "100%",
+                                    left: 0,
+                                    right: 0,
+                                    marginTop: "0.5rem",
+                                    borderRadius: "10px",
+                                    border: "1px solid var(--card-border)",
+                                    background: "var(--panel)",
+                                    maxHeight: "200px",
+                                    overflowY: "auto",
+                                    zIndex: 50,
+                                  }}>
+                                    {newBodymindClientSearchResults
+                                      .filter(c => !newBodymindClients.some(selected => selected.id === c.id))
+                                      .map((client) => (
+                                        <div
+                                          key={client.id}
+                                          onClick={() => {
+                                            const maxCap = parseInt(newBodymindCapacity) || 0;
+                                            if (newBodymindClients.length >= maxCap) {
+                                              toast.error({ text: `Достигнута максимальная вместимость: ${maxCap} человек` });
+                                              return;
+                                            }
+                                            setNewBodymindClients(prev => [...prev, client]);
+                                            setNewBodymindClientSearchQuery("");
+                                            setNewBodymindClientSearchResults([]);
+                                            setShowNewBodymindClientSelect(false);
+                                          }}
+                                          style={{
+                                            padding: "0.75rem",
+                                            borderRadius: "8px",
+                                            border: "1px solid var(--card-border)",
+                                            background: "var(--panel)",
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                            alignItems: "center",
+                                          }}
+                                        >
+                                          <div>
+                                            <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>{client.name}</div>
+                                            <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)", marginTop: "0.25rem" }}>
+                                              {client.phone}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowNewBodymindClientSelect(false);
+                                  setNewBodymindClientSearchQuery("");
+                                  setNewBodymindClientSearchResults([]);
+                                }}
+                                style={{
+                                  padding: "0.5rem 0.75rem",
+                                  borderRadius: "8px",
+                                  border: "1px solid var(--card-border)",
+                                  background: "var(--background)",
+                                  color: "var(--foreground)",
+                                  fontSize: "0.8125rem",
+                                  fontWeight: 500,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Отмена
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Время */}
+                        <div style={{
+                          padding: "0.75rem 0.875rem",
+                          borderRadius: "10px",
+                          border: "1px solid var(--card-border)",
+                        }}>
+                          <div style={{
+                            fontSize: "0.6875rem",
+                            fontWeight: 600,
+                            color: "var(--muted-foreground)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            marginBottom: "0.375rem",
+                          }}>
+                            Время
+                          </div>
+                          <div style={{
+                            fontSize: "0.9375rem",
+                            fontWeight: 600,
+                            color: "var(--foreground)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                          }}>
+                            <Clock className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                            {selectedScheduleTime}
+                          </div>
+                        </div>
+
+                        {/* Кнопки действий */}
+                        <div style={{
+                          display: "flex",
+                          gap: "0.625rem",
+                          paddingTop: "1rem",
+                          borderTop: "1px solid var(--card-border)",
+                        }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedScheduleCategory(null);
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "0.75rem 1rem",
+                              borderRadius: "10px",
+                              border: "1.5px solid var(--card-border)",
+                              background: "var(--background)",
+                              color: "var(--foreground)",
+                              fontSize: "0.875rem",
+                              fontWeight: 500,
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "var(--muted)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "var(--background)";
+                            }}
+                          >
+                            Назад
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (newBodymindName && newBodymindTrainer && newBodymindCapacity && selectedScheduleDayKey && selectedScheduleTime) {
+                                try {
+                                  // Используем сохраненную конкретную дату, если она есть, иначе вычисляем из dayKey
+                                  const bookingDate = selectedScheduleDate || getDateStringForDayKey(selectedScheduleDayKey, weekStart);
+                                  
+                                  // Проверка: нельзя создавать записи на прошедшие даты
+                                  const today = new Date();
+                                  today.setHours(0, 0, 0, 0);
+                                  const bookingDateObj = new Date(bookingDate);
+                                  bookingDateObj.setHours(0, 0, 0, 0);
+                                  
+                                  if (bookingDateObj < today) {
+                                    toast.error({ text: "Нельзя создавать записи на прошедшие даты. Выберите сегодняшнюю или будущую дату." });
+                                    return;
+                                  }
+                                  
+                                  // Находим ID тренера
+                                  const trainer = availableTrainers.find(t => t.name === newBodymindTrainer);
+                                  
+                                  // Преобразуем клиентов в формат для API
+                                  const clientsForApi = newBodymindClients.map(client => ({
+                                    client_id: client.id,
+                                    client_name: client.name,
+                                    client_phone: client.phone || null,
+                                  }));
+                                  
+                                  const maxCap = parseInt(newBodymindCapacity) || 10;
+                                  
+                                  // Проверка вместимости
+                                  if (clientsForApi.length > maxCap) {
+                                    toast.error({ text: `Превышена вместимость: добавлено ${clientsForApi.length} клиентов, максимум ${maxCap}` });
+                                    return;
+                                  }
+                                  
+                                  const bookingData: ScheduleBookingCreate = {
+                                    booking_date: bookingDate,
+                                    booking_time: selectedScheduleTime,
+                                    category: "Body Mind",
+                                    service_name: newBodymindName,
+                                    trainer_id: trainer?.id || null,
+                                    trainer_name: newBodymindTrainer,
+                                    clients: clientsForApi,
+                                    max_capacity: maxCap,
+                                    status: "Свободно",
+                                    notes: null,
+                                  };
+                                  
+                                  // Создаем запись через API
+                                  const createdBooking = await createScheduleBooking(bookingData);
+                                  
+                                  // Перезагружаем данные из API, чтобы убедиться, что все синхронизировано
+                                  await loadBookingsFromApi(viewMode === "overview");
+                                  
+                                  toast.success({ text: "Запись успешно создана" });
+                                handleCloseDrawer();
+                                } catch (error) {
+                                  console.error("Failed to create booking:", error);
+                                  toast.error({ text: "Не удалось создать запись" });
+                                }
+                              }
+                            }}
+                            disabled={!newBodymindName || !newBodymindTrainer || !newBodymindCapacity}
+                            style={{
+                              flex: 1,
+                              padding: "0.75rem 1rem",
+                              borderRadius: "10px",
+                              border: "1.5px solid transparent",
+                              background: (!newBodymindName || !newBodymindTrainer || !newBodymindCapacity)
+                                ? "var(--muted)"
+                                : "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                              color: (!newBodymindName || !newBodymindTrainer || !newBodymindCapacity)
+                                ? "var(--muted-foreground)"
+                                : "#fff",
+                              fontSize: "0.875rem",
+                              fontWeight: 600,
+                              cursor: (!newBodymindName || !newBodymindTrainer || !newBodymindCapacity) ? "not-allowed" : "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (newBodymindName && newBodymindTrainer && newBodymindCapacity) {
+                                e.currentTarget.style.transform = "translateY(-1px)";
+                                e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.3)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = "translateY(0)";
+                              e.currentTarget.style.boxShadow = "none";
+                            }}
+                          >
+                            Создать
+                          </button>
+          </div>
+        </>
+                    ) : (
+                      <>
+                        {/* Тренер для Pilates Reformer */}
+                        <div style={{
+                          padding: "0.75rem 0.875rem",
+                          borderRadius: "10px",
+                          border: "1px solid var(--card-border)",
+                        }}>
+                          <div style={{
+                            fontSize: "0.6875rem",
+                            fontWeight: 600,
+                            color: "var(--muted-foreground)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            marginBottom: "0.375rem",
+                          }}>
+                            Тренер
+                          </div>
+                          {!showNewPilatesTrainerSelect ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                              {newPilatesTrainer ? (
+                                <div style={{
+                                  fontSize: "0.9375rem",
+                                  fontWeight: 600,
+                                  color: "var(--foreground)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: "0.5rem",
+                                }}>
+                                  <User className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                                  {newPilatesTrainer}
+                                </div>
+                              ) : (
+                                <div style={{
+                                  fontSize: "0.875rem",
+                                  color: "var(--muted-foreground)",
+                                }}>
+                                  Тренер не выбран
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setShowNewPilatesTrainerSelect(true)}
+                                style={{
+                                  padding: "0.5rem 0.75rem",
+                                  borderRadius: "8px",
+                                  border: "1px solid var(--card-border)",
+                                  background: "var(--background)",
+                                  color: "var(--foreground)",
+                                  fontSize: "0.8125rem",
+                                  fontWeight: 500,
+                                  cursor: "pointer",
+                                  transition: "all 0.2s ease",
+                                  alignSelf: "flex-start",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.background = "var(--muted)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.background = "var(--background)";
+                                }}
+                              >
+                                {newPilatesTrainer ? "Изменить тренера" : "Выбрать тренера"}
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                              <div style={{ position: "relative" }}>
+                                <input
+                                  type="text"
+                                  placeholder="Поиск тренера"
+                                  value={newPilatesTrainerSearchQuery}
+                                  onChange={(e) => setNewPilatesTrainerSearchQuery(e.target.value)}
+                                  style={{
+                                    width: "100%",
+                                    padding: "0.625rem 0.875rem",
+                                    borderRadius: "10px",
+                                    border: "1.5px solid var(--card-border)",
+                                    background: "var(--background)",
+                                    fontSize: "0.875rem",
+                                    color: "var(--foreground)",
+                                    outline: "none",
+                                  }}
+                                  onFocus={(e) => {
+                                    e.currentTarget.style.borderColor = "rgba(16, 185, 129, 0.6)";
+                                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(16, 185, 129, 0.1)";
+                                  }}
+                                  onBlur={(e) => {
+                                    e.currentTarget.style.borderColor = "var(--card-border)";
+                                    e.currentTarget.style.boxShadow = "none";
+                                  }}
+                                />
+                                <div style={{ marginTop: "0.5rem", display: "flex", flexDirection: "column", gap: "0.5rem", maxHeight: "200px", overflowY: "auto" }}>
+                                  {availableTrainers
+                                    .filter(t => t.name.toLowerCase().includes(newPilatesTrainerSearchQuery.toLowerCase()))
+                                    .map((trainer) => (
+                                      <div
+                                        key={trainer.name}
+                                        onClick={() => {
+                                          setNewPilatesTrainer(trainer.name);
+                                          setShowNewPilatesTrainerSelect(false);
+                                          setNewPilatesTrainerSearchQuery("");
+                                        }}
+                                        style={{
+                                          padding: "0.75rem",
+                                          borderRadius: "8px",
+                                          border: "1px solid var(--card-border)",
+                                          background: "var(--panel)",
+                                          cursor: "pointer",
+                                          display: "flex",
+                                          justifyContent: "space-between",
+                                          alignItems: "center",
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.background = "var(--muted)";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.background = "var(--panel)";
+                                        }}
+                                      >
+                                        <div>
+                                          <div style={{ fontWeight: 600, fontSize: "0.875rem" }}>{trainer.name}</div>
+                                          <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)", marginTop: "0.25rem" }}>
+                                            {trainer.phone}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Дата и время */}
+                        <div style={{
+                          padding: "0.75rem 0.875rem",
+                          borderRadius: "10px",
+                          border: "1px solid var(--card-border)",
+                        }}>
+                          <div style={{
+                            fontSize: "0.6875rem",
+                            fontWeight: 600,
+                            color: "var(--muted-foreground)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            marginBottom: "0.375rem",
+                          }}>
+                            Дата и время
+                          </div>
+                          <div style={{
+                            fontSize: "0.9375rem",
+                            fontWeight: 600,
+                            color: "var(--foreground)",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "0.375rem",
+                          }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                              <Calendar className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                              <span>
+                                {(() => {
+                                  const dayNames = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
+                                  const dayIndex = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].indexOf(selectedScheduleDayKey);
+                                  const dayName = dayIndex !== -1 ? dayNames[dayIndex] : selectedScheduleDayKey;
+                                  const bookingDate = selectedScheduleDate || getDateStringForDayKey(selectedScheduleDayKey, weekStart);
+                                  const date = new Date(bookingDate);
+                                  const formattedDate = date.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+                                  return `${dayName}, ${formattedDate}`;
+                                })()}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                            <Clock className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                              <span>{selectedScheduleTime}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Кнопки действий */}
+                        <div style={{
+                          display: "flex",
+                          gap: "0.625rem",
+                          paddingTop: "1rem",
+                          borderTop: "1px solid var(--card-border)",
+                        }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedScheduleCategory(null);
+                            }}
+                            style={{
+                              flex: 1,
+                              padding: "0.75rem 1rem",
+                              borderRadius: "10px",
+                              border: "1.5px solid var(--card-border)",
+                              background: "var(--background)",
+                              color: "var(--foreground)",
+                              fontSize: "0.875rem",
+                              fontWeight: 500,
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = "var(--muted)";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = "var(--background)";
+                            }}
+                          >
+                            Назад
+                          </button>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (newPilatesTrainer && selectedScheduleDayKey && selectedScheduleTime) {
+                                try {
+                                  // Используем сохраненную конкретную дату, если она есть, иначе вычисляем из dayKey
+                                  const bookingDate = selectedScheduleDate || getDateStringForDayKey(selectedScheduleDayKey, weekStart);
+                                  
+                                  // Проверка: нельзя создавать записи на прошедшие даты
+                                  const today = new Date();
+                                  today.setHours(0, 0, 0, 0);
+                                  const bookingDateObj = new Date(bookingDate);
+                                  bookingDateObj.setHours(0, 0, 0, 0);
+                                  
+                                  if (bookingDateObj < today) {
+                                    toast.error({ text: "Нельзя создавать записи на прошедшие даты. Выберите сегодняшнюю или будущую дату." });
+                                    return;
+                                  }
+                                  
+                                  
+                                  // Находим ID тренера
+                                  const trainer = availableTrainers.find(t => t.name === newPilatesTrainer);
+                                  
+                                  const bookingData: ScheduleBookingCreate = {
+                                    booking_date: bookingDate,
+                                    booking_time: selectedScheduleTime,
+                                    category: "Pilates Reformer",
+                                    service_name: null,
+                                    trainer_id: trainer?.id || null,
+                                    trainer_name: newPilatesTrainer,
+                                    clients: [],
+                                    max_capacity: 1,
+                                    status: "Свободно",
+                                    notes: null,
+                                  };
+                                  
+                                  // Создаем запись через API
+                                  
+                                  const createdBooking = await createScheduleBooking(bookingData);
+                                  
+                                  // Небольшая задержка перед перезагрузкой, чтобы сервер успел обработать запрос
+                                  await new Promise(resolve => setTimeout(resolve, 500));
+                                  
+                                  // Перезагружаем данные из API, чтобы убедиться, что все синхронизировано
+                                  await loadBookingsFromApi(viewMode === "overview");
+                                  
+                                  toast.success({ text: "Запись успешно создана" });
+                                handleCloseDrawer();
+                                } catch (error) {
+                                  console.error("Failed to create booking:", error);
+                                  toast.error({ text: "Не удалось создать запись" });
+                                }
+                              }
+                            }}
+                            disabled={!newPilatesTrainer}
+                            style={{
+                              flex: 1,
+                              padding: "0.75rem 1rem",
+                              borderRadius: "10px",
+                              border: "1.5px solid transparent",
+                              background: !newPilatesTrainer
+                                ? "var(--muted)"
+                                : "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                              color: !newPilatesTrainer
+                                ? "var(--muted-foreground)"
+                                : "#fff",
+                              fontSize: "0.875rem",
+                              fontWeight: 600,
+                              cursor: !newPilatesTrainer ? "not-allowed" : "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (newPilatesTrainer) {
+                                e.currentTarget.style.transform = "translateY(-1px)";
+                                e.currentTarget.style.boxShadow = "0 4px 12px rgba(16, 185, 129, 0.3)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.transform = "translateY(0)";
+                              e.currentTarget.style.boxShadow = "none";
+                            }}
+                          >
+                            Создать
+                          </button>
+          </div>
+        </>
+      )}
+                  </div>
+                )}
+
               </div>
             </div>
           </div>
         </>
       )}
+
+      {/* Модальное окно подтверждения удаления для Body Mind */}
+      <Modal
+        open={showDeleteModal && drawerMode === "bodymind"}
+        onClose={() => setShowDeleteModal(false)}
+        title="Подтвердите удаление"
+      >
+        <div style={{ display: "flex", gap: "0.625rem", marginTop: "1.5rem" }}>
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(false)}
+            style={{
+              flex: 1,
+              padding: "0.75rem 1rem",
+              borderRadius: "10px",
+              border: "1.5px solid var(--card-border)",
+              background: "var(--background)",
+              color: "var(--foreground)",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+          >
+            Отмена
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              if (selectedBodymindGroup && selectedBodymindGroup.bookingId) {
+                try {
+                  await deleteScheduleBooking(selectedBodymindGroup.bookingId);
+                  
+                  // Удаляем из локального состояния
+                setScheduleGroups(prev => prev.filter(g => 
+                  !(g.dayKey === selectedBodymindGroup.dayKey && 
+                    g.time === selectedBodymindGroup.time && 
+                    g.name === selectedBodymindGroup.name &&
+                    g.date === selectedBodymindGroup.date)
+                ));
+                  
+                  // Перезагружаем данные из API (для обзора загружаем только сегодня)
+                  await loadBookingsFromApi(viewMode === "overview");
+                  console.log("✓ Data reloaded from API after deletion");
+                  
+                  toast.success({ text: "Запись успешно удалена" });
+                setShowDeleteModal(false);
+                handleCloseDrawer();
+                } catch (error) {
+                  console.error("Failed to delete BodyMind booking:", error);
+                  toast.error({ text: `Не удалось удалить запись: ${error instanceof Error ? error.message : "Неизвестная ошибка"}` });
+                }
+              } else if (selectedBodymindGroup) {
+                // Если нет bookingId - просто удаляем из интерфейса
+                const group = selectedBodymindGroup;
+                setScheduleGroups(prev => prev.filter(g => 
+                  !(g.dayKey === group.dayKey && 
+                    g.time === group.time && 
+                    g.name === group.name &&
+                    g.date === group.date)
+                ));
+                setShowDeleteModal(false);
+                handleCloseDrawer();
+                toast.success({ text: "Запись удалена из интерфейса" });
+              }
+            }}
+            style={{
+              flex: 1,
+              padding: "0.75rem 1rem",
+              borderRadius: "10px",
+              border: "1.5px solid transparent",
+              background: "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
+              color: "#fff",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+          >
+            Удалить
+          </button>
+        </div>
+      </Modal>
+
+      {/* Модальное окно подтверждения удаления для Pilates Reformer */}
+      <Modal
+        open={showDeleteModal && !!pilatesDeleteData}
+        onClose={() => {
+          // Не закрываем модальное окно, если оно только что открылось
+          if (deleteModalJustOpened) {
+            return;
+          }
+          setShowDeleteModal(false);
+          setPilatesDeleteData(null);
+        }}
+        title="Подтвердите удаление"
+      >
+        <div style={{ padding: "1rem 0" }}>
+          <p style={{ 
+            marginBottom: "1.5rem", 
+            color: "var(--foreground)",
+            fontSize: "0.875rem",
+            lineHeight: "1.5"
+          }}>
+            Вы уверены, что хотите удалить запись? Это действие нельзя отменить.
+          </p>
+          <div style={{ display: "flex", gap: "0.625rem" }}>
+          <button
+            type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setShowDeleteModal(false);
+                setPilatesDeleteData(null);
+              }}
+            style={{
+              flex: 1,
+              padding: "0.75rem 1rem",
+              borderRadius: "10px",
+              border: "1.5px solid var(--card-border)",
+              background: "var(--background)",
+              color: "var(--foreground)",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+          >
+            Отмена
+          </button>
+          <button
+            type="button"
+              onClick={async (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                if (!pilatesDeleteData) {
+                  toast.error({ text: "Ошибка: данные для удаления не найдены" });
+                  return;
+                }
+                
+                try {
+                  // Удаляем запись через API
+                  await deleteScheduleBooking(pilatesDeleteData.bookingId);
+                  
+                  // Сразу удаляем из локального состояния
+                  setScheduleTrainers(prev => 
+                    prev.filter(t => t.bookingId !== pilatesDeleteData.bookingId)
+                  );
+                  
+                  // Перезагружаем данные из API
+                  await loadBookingsFromApi();
+                  console.log("✓ Data reloaded from API after deletion");
+                  
+                  toast.success({ text: "Запись успешно удалена" });
+                setShowDeleteModal(false);
+                  setPilatesDeleteData(null);
+                handleCloseDrawer();
+                } catch (error) {
+                  console.error("Failed to delete Pilates booking:", error);
+                  toast.error({ text: `Не удалось удалить запись: ${error instanceof Error ? error.message : "Неизвестная ошибка"}` });
+              }
+            }}
+            style={{
+              flex: 1,
+              padding: "0.75rem 1rem",
+              borderRadius: "10px",
+              border: "1.5px solid transparent",
+              background: "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
+              color: "#fff",
+              fontSize: "0.875rem",
+              fontWeight: 600,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+          >
+            Удалить
+          </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Модальное окно подтверждения удаления (только для обычных записей, не для Pilates/BodyMind) */}
+      <Modal
+        open={showDeleteModal && !pilatesDeleteData && drawerMode !== "bodymind"}
+        onClose={() => setShowDeleteModal(false)}
+        title="Подтверждение удаления"
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div>
+            <p style={{ 
+              fontSize: "0.9375rem", 
+              color: "var(--foreground)",
+              lineHeight: "1.6",
+            }}>
+              Вы уверены, что хотите удалить запись <strong>{selectedEvent?.clients && selectedEvent.clients.length > 0 ? selectedEvent.clients[0] : selectedEvent?.title}</strong>?
+            </p>
+            <p style={{ 
+              fontSize: "0.8125rem", 
+              color: "var(--muted-foreground)",
+              marginTop: "0.5rem",
+            }}>
+              Это действие нельзя отменить.
+            </p>
+          </div>
+          
+          <div style={{
+            display: "flex",
+            gap: "0.75rem",
+            justifyContent: "flex-end",
+          }}>
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(false)}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "10px",
+                border: "1.5px solid var(--card-border)",
+                background: "var(--background)",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--muted)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--background)";
+              }}
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmDelete}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "10px",
+                border: "1.5px solid transparent",
+                background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+                color: "#fff",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(239, 68, 68, 0.3)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            >
+              Удалить
+            </button>
+          </div>
+        </div>
+      </Modal>
+
     </div>
   );
 }
+

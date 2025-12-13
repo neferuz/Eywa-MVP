@@ -182,5 +182,6 @@ class ApplicationRepository:
             owner=model.owner,
             lastActivity=last_activity,
             chatHistory=chat_history,
+            createdAt=model.created_at,
         )
 

@@ -26,18 +26,33 @@ class ClientRepository:
         direction: Literal["Body", "Coworking", "Coffee"] | None,
         status: Literal["Активный", "Новый", "Ушедший"] | None,
     ) -> Select[tuple[ClientModel]]:
-        conditions = []
-        if query:
-            like = f"%{query.lower()}%"
-            digits = "".join(filter(str.isdigit, query))
-            conditions.append(func.lower(ClientModel.name).like(like))
-            conditions.append(func.replace(ClientModel.phone, " ", "").like(f"%{digits}%"))
-            conditions.append(func.lower(func.coalesce(ClientModel.instagram, "")).like(like))
+        # Применяем фильтр по query только если он не пустой и не None
+        if query and query.strip():
+            query_trimmed = query.strip()
+            # Используем ILIKE для case-insensitive поиска (работает лучше с кириллицей)
+            like_pattern = f"%{query_trimmed}%"
+            digits = "".join(filter(str.isdigit, query_trimmed))
+            
+            conditions = []
+            # Поиск по имени (case-insensitive через ILIKE)
+            conditions.append(ClientModel.name.ilike(like_pattern))
+            # Поиск по телефону (только если есть цифры)
+            if digits:
+                conditions.append(func.replace(ClientModel.phone, " ", "").like(f"%{digits}%"))
+            # Поиск по инстаграму (case-insensitive через ILIKE)
+            conditions.append(func.coalesce(ClientModel.instagram, "").ilike(like_pattern))
+            
+            # Применяем OR условие - клиент должен соответствовать хотя бы одному из условий
             stmt = stmt.where(or_(*conditions))
+        
+        # Применяем фильтр по direction
         if direction:
             stmt = stmt.where(ClientModel.direction == direction)
+        
+        # Применяем фильтр по status
         if status:
             stmt = stmt.where(ClientModel.status == status)
+        
         return stmt
 
     async def list_clients(
@@ -46,19 +61,38 @@ class ClientRepository:
         direction: Literal["Body", "Coworking", "Coffee"] | None,
         status: Literal["Активный", "Новый", "Ушедший"] | None,
     ) -> list[ClientSchema]:
+        # Если query пустой или None:
+        # - Если есть фильтры (direction или status) - возвращаем всех клиентов с этими фильтрами
+        # - Если нет фильтров - возвращаем всех клиентов (для страницы списка клиентов)
+        if not query or not query.strip():
+            # Нет поискового запроса - возвращаем всех клиентов (с фильтрами, если есть)
+            stmt = self._apply_filters(self._base_query(), None, direction, status)
+            result = await self.session.scalars(stmt)
+            rows = result.all()
+            return [self._to_schema(obj) for obj in rows]
+        
         stmt = self._apply_filters(self._base_query(), query, direction, status)
         result = await self.session.scalars(stmt)
         rows = result.all()
-        if not rows:
-            return self._filter_mock_clients(query, direction, status)
+        
+        # Возвращаем только данные из базы, без fallback на мок-данные
         return [self._to_schema(obj) for obj in rows]
 
     async def get_by_public_id(self, public_id: str) -> ClientSchema | None:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Fetching client by public_id: {public_id}")
+        
         stmt = select(ClientModel).where(ClientModel.public_id == public_id)
         result = await self.session.scalar(stmt)
         if result:
-            return self._to_schema(result)
-        return get_mock_client(public_id)
+            logger.info(f"Client found in DB: contract_number={result.contract_number}, subscription_number={result.subscription_number}, birth_date={result.birth_date}")
+            schema = self._to_schema(result)
+            logger.info(f"Returning schema: contractNumber={schema.contractNumber}, subscriptionNumber={schema.subscriptionNumber}, birthDate={schema.birthDate}")
+            return schema
+        # Возвращаем None вместо мок-данных - только реальные данные из базы
+        logger.warning(f"Client not found: {public_id}")
+        return None
 
     def _filter_mock_clients(
         self,
@@ -87,10 +121,17 @@ class ClientRepository:
 
     async def create_client(self, data: ClientCreate) -> ClientSchema:
         try:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Creating client: contractNumber={data.contractNumber}, subscriptionNumber={data.subscriptionNumber}, birthDate={data.birthDate}")
+            
             model = ClientModel(
                 public_id=str(uuid4()),
                 name=data.name,
                 phone=data.phone,
+                contract_number=data.contractNumber,
+                subscription_number=data.subscriptionNumber,
+                birth_date=data.birthDate,
                 instagram=data.instagram,
                 source=data.source,
                 direction=data.direction.value,
@@ -101,8 +142,17 @@ class ClientRepository:
             self.session.add(model)
             await self.session.commit()
             await self.session.refresh(model)
-            return self._to_schema(model)
-        except Exception:
+            
+            logger.info(f"Client created in DB: public_id={model.public_id}, contract_number={model.contract_number}, subscription_number={model.subscription_number}, birth_date={model.birth_date}")
+            
+            result = self._to_schema(model)
+            logger.info(f"Returning schema: contractNumber={result.contractNumber}, subscriptionNumber={result.subscriptionNumber}, birthDate={result.birthDate}")
+            
+            return result
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error creating client: {str(e)}", exc_info=True)
             await self.session.rollback()
             raise
 
@@ -117,6 +167,12 @@ class ClientRepository:
                 model.name = data.name
             if data.phone is not None:
                 model.phone = data.phone
+            if data.contractNumber is not None:
+                model.contract_number = data.contractNumber
+            if data.subscriptionNumber is not None:
+                model.subscription_number = data.subscriptionNumber
+            if data.birthDate is not None:
+                model.birth_date = data.birthDate
             if data.instagram is not None:
                 model.instagram = data.instagram
             if data.source is not None:
@@ -137,23 +193,84 @@ class ClientRepository:
             await self.session.rollback()
             raise
 
+    async def add_visit(self, public_id: str, visit_date: str | None = None) -> ClientSchema | None:
+        """Добавить визит клиента. Если visit_date не указана, используется текущая дата."""
+        from datetime import datetime
+        
+        stmt = select(ClientModel).where(ClientModel.public_id == public_id)
+        model = await self.session.scalar(stmt)
+        if not model:
+            return None
+        
+        # Если visit_date не указана, используем текущую дату
+        if not visit_date:
+            visit_date = datetime.now().strftime("%Y-%m-%d")
+        
+        # Инициализируем visits, если его нет
+        if model.visits is None:
+            model.visits = []
+        
+        # Добавляем визит, если его еще нет
+        if visit_date not in model.visits:
+            model.visits.append(visit_date)
+            model.visits.sort()  # Сортируем по дате
+        
+        # Устанавливаем activation_date, если его еще нет
+        if not model.activation_date:
+            model.activation_date = visit_date
+        
+        await self.session.commit()
+        await self.session.refresh(model)
+        return self._to_schema(model)
+
+    async def remove_visit(self, public_id: str, visit_date: str) -> ClientSchema | None:
+        """Удалить визит клиента по дате."""
+        stmt = select(ClientModel).where(ClientModel.public_id == public_id)
+        model = await self.session.scalar(stmt)
+        if not model:
+            return None
+        
+        # Инициализируем visits, если его нет
+        if model.visits is None:
+            model.visits = []
+        
+        # Удаляем визит, если он есть
+        if visit_date in model.visits:
+            model.visits.remove(visit_date)
+            model.visits.sort()  # Сортируем по дате
+        
+        await self.session.commit()
+        await self.session.refresh(model)
+        return self._to_schema(model)
+
     @staticmethod
     def _to_schema(model: ClientModel) -> ClientSchema:
-        return ClientSchema(
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        # Логируем значения из модели
+        logger.info(f"_to_schema: model.contract_number={model.contract_number}, model.subscription_number={model.subscription_number}, model.birth_date={model.birth_date}")
+        
+        result = ClientSchema(
             id=model.public_id,
             name=model.name,
             phone=model.phone,
-            contractNumber=None,
-            subscriptionNumber=None,
-            birthDate=None,
+            contractNumber=model.contract_number,
+            subscriptionNumber=model.subscription_number,
+            birthDate=model.birth_date,
             instagram=model.instagram,
             source=model.source,  # type: ignore[arg-type]
             direction=model.direction,  # type: ignore[arg-type]
             status=model.status,  # type: ignore[arg-type]
             subscriptions=[],
-            visits=[],
-            activationDate=None,
+            visits=model.visits if model.visits else [],
+            activationDate=model.activation_date,
             contraindications=model.contraindications,
             coachNotes=model.coach_notes,
         )
+        
+        # Логируем значения в результате
+        logger.info(f"_to_schema result: contractNumber={result.contractNumber}, subscriptionNumber={result.subscriptionNumber}, birthDate={result.birthDate}")
+        
+        return result
 

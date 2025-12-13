@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Card from "@/components/Card";
 import Link from "next/link";
 import Modal from "@/components/Modal";
@@ -8,7 +9,7 @@ import { CalendarCheck, Search, User, Plus, Filter, Trash2, AlertTriangle } from
 import { fetchClientsFromApi, createClient, deleteClient } from "@/lib/api";
 import { toast } from "@pheralb/toast";
 
-type ClientDirection = "Body" | "Coworking" | "Coffee";
+type ClientDirection = "Body" | "Coworking" | "Coffee" | "Pilates Reformer";
 type ClientStatus = "Активный" | "Новый" | "Ушедший";
 
 type Subscription = { name: string; validTill: string };
@@ -33,8 +34,9 @@ type ClientProfile = {
 
 const directionLabels: Record<ClientDirection, string> = {
   Body: "Body&mind",
-  Coworking: "Coworking (резиденты)",
+  Coworking: "Коворкинг",
   Coffee: "Детская",
+  "Pilates Reformer": "Pilates Reformer",
 };
 
 const statusTone: Record<ClientStatus, string> = {
@@ -44,6 +46,7 @@ const statusTone: Record<ClientStatus, string> = {
 };
 
 export default function BodyClientsPage() {
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [clients, setClients] = useState<ClientProfile[]>([]);
   const [directionFilter, setDirectionFilter] = useState<ClientDirection | null>(null);
@@ -51,17 +54,37 @@ export default function BodyClientsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
+  
+  // Получаем direction из URL параметров
+  const urlDirection = searchParams.get("direction") as ClientDirection | null;
+  const shouldOpenAddModal = searchParams.get("addClient") === "true";
   const [newClientName, setNewClientName] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
   const [newClientContract, setNewClientContract] = useState("");
   const [newClientSubscriptionNumber, setNewClientSubscriptionNumber] = useState("");
   const [newClientBirthDate, setNewClientBirthDate] = useState("");
-  const [newClientSubscriptionValidTill, setNewClientSubscriptionValidTill] = useState("");
+  const [newClientDirection, setNewClientDirection] = useState<ClientDirection>(urlDirection || "Body");
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Открываем модальное окно, если в URL есть параметр addClient
+  useEffect(() => {
+    if (shouldOpenAddModal) {
+      setIsAddClientOpen(true);
+      // Устанавливаем direction из URL, если есть
+      if (urlDirection) {
+        setNewClientDirection(urlDirection);
+      }
+      // Убираем параметр из URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete("addClient");
+      url.searchParams.delete("direction");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [shouldOpenAddModal, urlDirection]);
+  
   useEffect(() => {
     const checkSidebarState = () => {
       const saved = typeof window !== 'undefined' ? localStorage.getItem('sidebar-collapsed') : null;
@@ -134,15 +157,30 @@ export default function BodyClientsPage() {
     setError(null);
     try {
       const now = new Date();
-      const created = await createClient<ClientProfile>({
+      // Определяем direction: из URL параметра или из состояния формы
+      const clientDirection: ClientDirection = urlDirection || newClientDirection || "Body";
+      
+      const payload = {
         name: newClientName.trim(),
         phone: newClientPhone.trim(),
-        direction: "Body",
+        direction: clientDirection,
         status: "Новый",
         contractNumber: newClientContract.trim() || null,
         subscriptionNumber: newClientSubscriptionNumber.trim() || null,
-        birthDate: newClientBirthDate || null,
+        birthDate: newClientBirthDate?.trim() || null,
         source: "Instagram",
+      };
+      
+      console.log("Creating client with payload:", payload);
+      
+      const created = await createClient<ClientProfile>(payload);
+      
+      console.log("Client created response:", created);
+      console.log("Client created fields:", {
+        id: created.id,
+        contractNumber: created.contractNumber,
+        subscriptionNumber: created.subscriptionNumber,
+        birthDate: created.birthDate,
       });
 
       // Перезагружаем список клиентов
@@ -233,7 +271,7 @@ export default function BodyClientsPage() {
                 <Filter className="h-4 w-4" /> Направления
               </span>
               <div className="flex gap-2 flex-wrap">
-                {(["Body", "Coworking", "Coffee"] as ClientDirection[]).map((dir) => (
+                {(["Body", "Coworking", "Coffee", "Pilates Reformer"] as ClientDirection[]).map((dir) => (
                   <button
                     key={dir}
                     type="button"
@@ -323,9 +361,11 @@ export default function BodyClientsPage() {
                   <span className="body-clients__card-phone">{client.phone}</span>
                 </div>
                 <div className="flex items-center gap-2 ml-auto">
-                  <div className="body-clients__engagement" style={{ color: statusColor }}>
-                    {client.status}
-                  </div>
+                  {client.status !== "Новый" && (
+                    <div className="body-clients__engagement" style={{ color: statusColor }}>
+                      {client.status}
+                    </div>
+                  )}
                   <button
                     type="button"
                     aria-label="Удалить клиента"
@@ -432,15 +472,17 @@ export default function BodyClientsPage() {
               />
             </div>
             <div className="body-clients__add-field">
-              <label>Срок абонемента (дата окончания)</label>
-              <input
-                type="date"
-                value={newClientSubscriptionValidTill}
-                onChange={(event) => setNewClientSubscriptionValidTill(event.target.value)}
-              />
-              <p className="body-clients__add-hint">
-                Активация абонемента начинается с первого визита.
-              </p>
+              <label>Направление</label>
+              <select
+                value={newClientDirection}
+                onChange={(event) => setNewClientDirection(event.target.value as ClientDirection)}
+                className="body-clients__add-select"
+              >
+                <option value="Body">Body&mind</option>
+                <option value="Coworking">Коворкинг</option>
+                <option value="Pilates Reformer">Pilates Reformer</option>
+                <option value="Coffee">Детская</option>
+              </select>
             </div>
           </div>
 

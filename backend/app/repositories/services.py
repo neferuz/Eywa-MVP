@@ -55,12 +55,23 @@ class ServiceRepository:
         await self.session.refresh(model)
         return self._to_schema(model)
 
-    async def delete_service(self, public_id: str) -> None:
+    async def delete_service(self, public_id: str) -> bool:
         stmt = select(ServiceModel).where(ServiceModel.public_id == public_id)
         model = await self.session.scalar(stmt)
         if model:
             await self.session.delete(model)
             await self.session.commit()
+            return True
+        return False
 
     def _to_schema(self, model: ServiceModel) -> ServiceSchema:
-        return ServiceSchema.model_validate(model)
+        # Преобразуем модель в схему, используя public_id как id
+        return ServiceSchema(
+            id=model.public_id,
+            name=model.name,
+            category=model.category,
+            direction=model.direction,
+            duration_minutes=model.duration_minutes,
+            price=model.price,
+            description=model.description,
+        )

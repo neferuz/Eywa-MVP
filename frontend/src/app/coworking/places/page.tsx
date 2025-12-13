@@ -422,8 +422,7 @@ export default function CoworkingPlacesPage() {
                   style={{ 
                     background: "var(--muted)", 
                     borderColor: "var(--card-border)", 
-                    color: "var(--foreground)",
-                    focusRingColor: "var(--card-border)"
+                    color: "var(--foreground)"
                   }}
                   placeholder="Введите название места"
                   value={form.name}

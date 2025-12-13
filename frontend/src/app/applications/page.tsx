@@ -306,7 +306,7 @@ export default function ApplicationsPage() {
         <div className="applications-kanban">
           {STAGES.map((stage) => {
             const leads = leadsByStage[stage.id] ?? [];
-            const tone = TONE_PRESETS[stage.tone];
+            const tone = TONE_PRESETS[stage.tone as keyof typeof TONE_PRESETS];
             return (
               <div key={stage.id} className="applications-column" style={{ background: tone.gradient }}>
                 <div className="applications-column__header">

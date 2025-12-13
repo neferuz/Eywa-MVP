@@ -7,10 +7,10 @@ body {
 }
 
 :root {
-  --background: #dfdccf;
+  --background: #ffffff;
   --foreground: #171717;
   --card-border: rgba(0, 0, 0, 0.1);
-  --panel: #dfdccf;
+  --panel: #ffffff;
   --muted: rgba(0, 0, 0, 0.04);
   --group-bg: rgba(0, 0, 0, 0.05);
   --group-border: rgba(0, 0, 0, 0.15);
@@ -37,10 +37,10 @@ body {
 
 /* explicit theme override via data attribute */
 [data-theme="light"] {
-  --background: #dfdccf;
+  --background: #ffffff;
   --foreground: #171717;
   --card-border: rgba(0, 0, 0, 0.22); /* stronger border for light theme */
-  --panel: #dfdccf;
+  --panel: #ffffff;
   --muted: rgba(0, 0, 0, 0.04);
   --group-bg: transparent; /* no badge background in light theme */
   --group-border: transparent; /* no border in light theme */
@@ -8208,6 +8208,17 @@ td.time-cell::after {
   min-height: 60px;
   user-select: none;
   overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* Плавный переход для событий, которые продолжаются между колонками */
+.schedule-load-cell--event[style*="borderLeft: none"],
+.schedule-load-cell--event[style*="borderRight: none"] {
+  margin: 0;
+  padding: 0;
+  box-shadow: none;
+  z-index: 2;
 }
 
 .schedule-load-cell--event:active {
@@ -8227,8 +8238,9 @@ td.time-cell::after {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  justify-content: flex-start;
+  justify-content: space-between;
   pointer-events: none;
+  box-sizing: border-box;
 }
 
 .schedule-load-event-status {
@@ -8241,25 +8253,27 @@ td.time-cell::after {
 }
 
 .schedule-load-event-name {
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: var(--foreground);
   line-height: 1.3;
   margin: 0;
   word-break: break-word;
   overflow-wrap: break-word;
+  letter-spacing: -0.01em;
 }
 
 .schedule-load-event-meta {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.625rem;
   flex-wrap: wrap;
   font-size: 0.6875rem;
   color: var(--muted-foreground);
   line-height: 1.4;
   margin-top: auto;
-  padding-top: 0.25rem;
+  padding-top: 0;
+  flex-shrink: 0;
 }
 
 .schedule-load-event-meta-item {
@@ -8267,6 +8281,7 @@ td.time-cell::after {
   align-items: center;
   gap: 0.375rem;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .schedule-load-event-icon {
@@ -8382,15 +8397,16 @@ td.time-cell::after {
   right: 0;
   width: min(420px, 90vw);
   height: 100vh;
-  background: var(--panel);
-  border-left: 1px solid var(--card-border);
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+  background: var(--background);
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
   z-index: 50;
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
 .schedule-event-drawer--open {
@@ -8406,68 +8422,74 @@ td.time-cell::after {
 
 .schedule-event-drawer__header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  padding: 1.25rem;
-  border-bottom: 1px solid var(--card-border);
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   background: var(--background);
   position: sticky;
   top: 0;
   z-index: 1;
+  gap: 12px;
 }
 
 .schedule-event-drawer__header-content {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 12px;
   flex: 1;
+  align-self: flex-start;
 }
 
 .schedule-event-drawer__title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 800;
+  color: #0a0a0a;
   margin: 0;
   line-height: 1.3;
+  font-family: 'Manrope', sans-serif;
+  letter-spacing: -0.02em;
 }
 
 .schedule-event-drawer__badge {
   display: inline-flex;
   align-items: center;
-  font-size: 0.7rem;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  padding: 0.35rem 0.75rem;
+  letter-spacing: 0.5px;
+  padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid;
   width: fit-content;
+  font-family: 'Manrope', sans-serif;
 }
 
 .schedule-event-drawer__badge--soft {
-  border-color: rgba(23, 23, 23, 0.15);
-  color: rgba(23, 23, 23, 0.6);
-  background: rgba(23, 23, 23, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.04);
 }
 
 .schedule-event-drawer__close {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  border: 1px solid var(--card-border);
-  background: var(--muted);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--background);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
-  color: var(--foreground);
+  color: #0a0a0a;
 }
 
 .schedule-event-drawer__close:hover {
-  background: var(--card-border);
-  transform: scale(1.05);
+  background: #f1f3f5;
+  border-color: rgba(0, 0, 0, 0.12);
+  transform: scale(1.05) rotate(90deg);
 }
 
 .schedule-event-drawer__content {
@@ -8995,5 +9017,49 @@ td.time-cell::after {
 
 .applications-card__meta svg {
   flex-shrink: 0;
+}
+
+/* React Day Picker стили - минимальная кастомизация */
+.rdp {
+  --rdp-cell-size: 36px;
+  --rdp-accent-color: #0a0a0a;
+  --rdp-background-color: var(--background);
+  --rdp-accent-color-dark: #0a0a0a;
+  --rdp-background-color-dark: var(--background);
+  --rdp-outline: 2px solid var(--card-border);
+  --rdp-outline-selected: 2px solid #0a0a0a;
+  margin: 0;
+  font-family: 'Manrope', sans-serif;
+}
+
+.rdp-button {
+  border-radius: 8px;
+  border: 1px solid var(--card-border);
+  background: var(--background);
+  color: var(--foreground);
+  transition: all 0.2s ease;
+}
+
+.rdp-button:hover {
+  background: var(--muted);
+}
+
+.rdp-day {
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.rdp-day:hover:not(.rdp-day_disabled):not(.rdp-day_selected) {
+  background: var(--muted);
+}
+
+.rdp-day_selected {
+  background: var(--muted) !important;
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
+}
+
+.rdp-day_today {
+  font-weight: 600;
 }
 

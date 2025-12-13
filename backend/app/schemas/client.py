@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class ClientStatus(str, Enum):
@@ -16,6 +16,7 @@ class ClientDirection(str, Enum):
     BODY = "Body"
     COWORKING = "Coworking"
     COFFEE = "Coffee"
+    PILATES_REFORMER = "Pilates Reformer"
 
 
 class Subscription(BaseModel):
@@ -55,10 +56,32 @@ class ClientCreate(BaseModel):
     birthDate: str | None = Field(default=None, alias="birth_date")
     instagram: str | None = None
     source: Literal["Instagram", "Telegram", "Рекомендации", "Google"] = "Instagram"
-    direction: ClientDirection = ClientDirection.BODY
-    status: ClientStatus = ClientStatus.NEW
+    direction: ClientDirection | str = ClientDirection.BODY
+    status: ClientStatus | str = ClientStatus.NEW
     contraindications: str | None = None
     coachNotes: str | None = Field(default=None, alias="coach_notes")
+    
+    @field_validator("direction", mode="before")
+    @classmethod
+    def validate_direction(cls, v):
+        """Преобразуем строку в enum значение."""
+        if isinstance(v, str):
+            try:
+                return ClientDirection(v)
+            except ValueError:
+                return ClientDirection.BODY
+        return v
+    
+    @field_validator("status", mode="before")
+    @classmethod
+    def validate_status(cls, v):
+        """Преобразуем строку в enum значение."""
+        if isinstance(v, str):
+            try:
+                return ClientStatus(v)
+            except ValueError:
+                return ClientStatus.NEW
+        return v
 
 
 class ClientUpdate(BaseModel):

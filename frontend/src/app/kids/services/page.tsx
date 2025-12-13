@@ -362,7 +362,7 @@ export default function KidsServicesPage() {
                   minHeight: "100px",
                 }}
                 placeholder="Введите описание услуги"
-                value={form.description}
+                value={form.description ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               />
             </div>

@@ -13,8 +13,14 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [isClosing, setIsClosing] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const justOpenedRef = useRef(false);
 
   const handleClose = () => {
+    // Предотвращаем закрытие сразу после открытия (защита от случайных кликов)
+    if (justOpenedRef.current) {
+      console.log("Modal just opened - preventing immediate close");
+      return;
+    }
     if (isClosing) return;
     setIsClosing(true);
     setTimeout(() => {
@@ -29,6 +35,12 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
     if (open) {
       setIsVisible(true);
       setIsClosing(false);
+      // Устанавливаем флаг, что модальное окно только что открылось
+      justOpenedRef.current = true;
+      setTimeout(() => {
+        justOpenedRef.current = false;
+      }, 300); // Защита от закрытия в течение 300ms после открытия
+      
       const prev = document.body.style.overflow;
       document.body.style.overflow = "hidden";
       const onKey = (e: KeyboardEvent) => {
@@ -62,8 +74,17 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
         WebkitBackdropFilter: isClosing ? "blur(0px)" : "blur(12px)",
         transition: "all 0.2s ease-out",
         opacity: isClosing ? 0 : 1,
+        zIndex: 10000, // Очень высокий z-index, чтобы модальное окно было поверх всего, включая drawer (z-40)
       }}
-      onClick={handleClose}
+      onClick={(e) => {
+        // Закрываем модальное окно только при клике именно на overlay (не на дочерние элементы)
+        if (e.target === e.currentTarget) {
+          console.log("Modal overlay clicked - closing modal");
+          handleClose();
+        } else {
+          console.log("Modal clicked but not on overlay - target:", e.target, "currentTarget:", e.currentTarget);
+        }
+      }}
     >
       <div
         ref={panelRef}
@@ -83,7 +104,7 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
         aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
-        {(title || onClose) ? (
+        {title ? (
           <div 
             className="flex items-center justify-between px-6 py-5" 
             style={{ 

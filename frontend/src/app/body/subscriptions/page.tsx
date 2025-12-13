@@ -1,32 +1,240 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Card from "@/components/Card";
 import Modal from "@/components/Modal";
-import { Plus, Search, CreditCard, Users, Calendar, AlertCircle, TrendingDown, Clock } from "lucide-react";
+import { Plus, Search, CreditCard, Users, Calendar, AlertCircle, TrendingDown, Clock, Loader2, RefreshCw, Minus } from "lucide-react";
+import { fetchPayments, updatePayment, addClientVisit, type Payment } from "@/lib/api";
+import { toast } from "@pheralb/toast";
 
-type Row = { id: string; client: string; type: string; left: number; until: string; total: number };
-
-const MOCK: Row[] = [
-  { id: "a1", client: "Иван П.", type: "Body 12", left: 5, until: "2026-01-15", total: 12 },
-  { id: "a2", client: "Мария С.", type: "Body 8", left: 2, until: "2025-12-01", total: 8 },
-  { id: "a3", client: "Анна К.", type: "Body 12", left: 0, until: "2025-11-20", total: 12 },
-  { id: "a4", client: "Дмитрий В.", type: "Body 8", left: 6, until: "2026-02-10", total: 8 },
-];
+type Row = { 
+  id: string; 
+  client: string; 
+  clientId: string | null;
+  type: string; 
+  left: number; 
+  purchasedAt: string; 
+  total: number;
+  paymentId: string;
+};
 
 export default function BodySubscriptionsPage() {
+  const router = useRouter();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Row | null>(null);
-  const filtered = useMemo(() => MOCK.filter((r) => !q || r.client.toLowerCase().includes(q.toLowerCase())), [q]);
+  const [subscriptions, setSubscriptions] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const totalSubscriptions = MOCK.length;
-  const activeSubscriptions = MOCK.filter(s => s.left > 0).length;
-  const expiredSubscriptions = MOCK.filter(s => {
-    const until = new Date(s.until);
-    return until < new Date();
-  }).length;
-  const lowBalanceSubscriptions = MOCK.filter(s => s.left > 0 && s.left <= 2).length;
+  useEffect(() => {
+    async function loadSubscriptions() {
+      try {
+        setLoading(true);
+        // Загружаем все платежи
+        const payments = await fetchPayments();
+        
+        // Фильтруем только абонементы Body (по категории или названию услуги)
+        const bodyPayments = payments.filter(p => {
+          const categoryMatch = p.service_category && (
+            p.service_category.toLowerCase() === "body" ||
+            p.service_category.toLowerCase() === "bODY"
+          );
+          const nameMatch = p.service_name && p.service_name.toLowerCase().includes("body");
+          return (categoryMatch || nameMatch) && p.quantity && p.quantity > 0;
+        });
+
+        // Преобразуем платежи в формат Row и фильтруем разовые занятия
+        const rows: Row[] = bodyPayments
+          .map((payment: Payment) => {
+            // Извлекаем количество занятий из названия услуги или используем quantity
+            const match = payment.service_name.match(/(\d+)\s*занят/i);
+            const total = match ? parseInt(match[1], 10) : (payment.quantity || 1);
+            
+            // Используем quantity из платежа как остаток занятий
+            const left = payment.quantity || 0;
+
+            return {
+              id: payment.public_id,
+              client: payment.client_name || "Не указан",
+              clientId: payment.client_id,
+              type: payment.service_name,
+              left: left,
+              purchasedAt: payment.created_at,
+              total: total,
+              paymentId: payment.public_id,
+            };
+          })
+          .filter((row) => {
+            // Исключаем разовые занятия (где total = 1 и left = 1)
+            // Или где в названии есть "разовое"
+            const isSingle = row.total === 1 && row.left === 1;
+            const isSingleByName = row.type.toLowerCase().includes("разовое");
+            
+            // Показываем только абонементы (больше 1 занятия или есть слово "абонемент")
+            const isAbonement = row.total > 1 || row.type.toLowerCase().includes("абонемент");
+            
+            return !isSingle && !isSingleByName && isAbonement;
+          });
+
+        // Группируем абонементы по клиенту и типу услуги
+        // Если у одного клиента несколько платежей с одинаковым типом - объединяем их
+        const groupedMap = new Map<string, Row>();
+        
+        rows.forEach((row) => {
+          // Создаем ключ для группировки: clientId + type
+          const key = `${row.clientId || row.client}_${row.type}`;
+          
+          if (groupedMap.has(key)) {
+            // Если такой абонемент уже есть - суммируем остатки
+            const existing = groupedMap.get(key)!;
+            existing.left += row.left;
+            existing.total += row.total;
+            // Берем самую раннюю дату покупки
+            if (new Date(row.purchasedAt) < new Date(existing.purchasedAt)) {
+              existing.purchasedAt = row.purchasedAt;
+            }
+            // Сохраняем ID первого платежа (или можно использовать массив ID)
+            // Для простоты оставляем первый paymentId
+          } else {
+            // Первый абонемент такого типа для этого клиента
+            groupedMap.set(key, { ...row });
+          }
+        });
+        
+        // Преобразуем Map обратно в массив
+        const mapped = Array.from(groupedMap.values());
+
+        setSubscriptions(mapped);
+      } catch (error) {
+        console.error("Failed to load subscriptions:", error);
+        setSubscriptions([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadSubscriptions();
+  }, []);
+
+  const handleExtend = (subscription: Row) => {
+    if (!subscription.clientId) {
+      toast.error({ text: "Не удалось продлить: отсутствует ID клиента" });
+      return;
+    }
+
+    // Редирект на страницу оплаты с предзаполнением
+    const params = new URLSearchParams({
+      client_id: subscription.clientId,
+      service_name: subscription.type,
+    });
+    router.push(`/payments?${params.toString()}`);
+  };
+
+  const handleDeduct = async (subscription: Row) => {
+    if (subscription.left <= 0) {
+      toast.error({ text: "Нельзя списать: занятий не осталось" });
+      return;
+    }
+
+    try {
+      setProcessingId(subscription.id);
+      
+      // Уменьшаем quantity на 1
+      const newQuantity = subscription.left - 1;
+      
+      await updatePayment(subscription.paymentId, {
+        quantity: newQuantity,
+      });
+
+      // Добавляем дату визита клиента (текущая дата)
+      if (subscription.clientId) {
+        try {
+          const today = new Date();
+          const dateStr = today.toISOString().split('T')[0]; // Формат YYYY-MM-DD
+          await addClientVisit(subscription.clientId, dateStr);
+        } catch (visitError) {
+          // Если не удалось добавить визит, не прерываем процесс списания
+          console.error("Failed to add client visit:", visitError);
+        }
+      }
+
+      toast.success({ text: "Занятие успешно списано" });
+      
+      // Перезагружаем данные из API для синхронизации
+      const payments = await fetchPayments();
+      
+      // Фильтруем только абонементы Body
+      const bodyPayments = payments.filter(p => {
+        const categoryMatch = p.service_category && (
+          p.service_category.toLowerCase() === "body" ||
+          p.service_category.toLowerCase() === "bODY"
+        );
+        const nameMatch = p.service_name && p.service_name.toLowerCase().includes("body");
+        return (categoryMatch || nameMatch) && p.quantity && p.quantity > 0;
+      });
+
+      // Преобразуем платежи в формат Row
+      const rows: Row[] = bodyPayments
+        .map((payment: Payment) => {
+          const match = payment.service_name.match(/(\d+)\s*занят/i);
+          const total = match ? parseInt(match[1], 10) : (payment.quantity || 1);
+          const left = payment.quantity || 0;
+
+          return {
+            id: payment.public_id,
+            client: payment.client_name || "Не указан",
+            clientId: payment.client_id,
+            type: payment.service_name,
+            left: left,
+            purchasedAt: payment.created_at,
+            total: total,
+            paymentId: payment.public_id,
+          };
+        })
+        .filter((row) => {
+          const isSingle = row.total === 1 && row.left === 1;
+          const isSingleByName = row.type.toLowerCase().includes("разовое");
+          const isAbonement = row.total > 1 || row.type.toLowerCase().includes("абонемент");
+          return !isSingle && !isSingleByName && isAbonement;
+        });
+
+      // Группируем абонементы
+      const groupedMap = new Map<string, Row>();
+      rows.forEach((row) => {
+        const key = `${row.clientId || row.client}_${row.type}`;
+        if (groupedMap.has(key)) {
+          const existing = groupedMap.get(key)!;
+          existing.left += row.left;
+          existing.total += row.total;
+          if (new Date(row.purchasedAt) < new Date(existing.purchasedAt)) {
+            existing.purchasedAt = row.purchasedAt;
+          }
+        } else {
+          groupedMap.set(key, { ...row });
+        }
+      });
+      
+      setSubscriptions(Array.from(groupedMap.values()));
+    } catch (error) {
+      console.error("Failed to deduct subscription:", error);
+      toast.error({ text: "Не удалось списать занятие" });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const filtered = useMemo(() => 
+    subscriptions.filter((r) => !q || r.client.toLowerCase().includes(q.toLowerCase())), 
+    [subscriptions, q]
+  );
+
+  const totalSubscriptions = subscriptions.length;
+  const activeSubscriptions = subscriptions.filter(s => s.left > 0).length;
+  const expiredSubscriptions = subscriptions.filter(s => s.left === 0).length;
+  const lowBalanceSubscriptions = subscriptions.filter(s => s.left > 0 && s.left <= 2).length;
 
   const getLeftColor = (left: number, total: number) => {
     const percentage = (left / total) * 100;
@@ -36,27 +244,9 @@ export default function BodySubscriptionsPage() {
     return "#10B981"; // зелёный - много осталось
   };
 
-  const isExpiringSoon = (until: string) => {
-    const untilDate = new Date(until);
-    const now = new Date();
-    const diffTime = untilDate.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 7 && diffDays > 0;
-  };
-
-  const isExpired = (until: string) => {
-    return new Date(until) < new Date();
-  };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">EYWA BODY · Абонементы</h1>
-        <button className="btn-outline" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" /> Добавить абонемент
-        </button>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <div className="flex items-center gap-2 mb-2">
@@ -112,23 +302,34 @@ export default function BodySubscriptionsPage() {
       </Card>
 
       <Card>
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin" style={{ color: "var(--muted-foreground)" }} />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <CreditCard className="h-12 w-12 mb-4" style={{ color: "var(--muted-foreground)" }} />
+            <div className="text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>Нет абонементов</div>
+            <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+              {q ? "Не найдено по запросу" : "Абонементы появятся здесь после покупки"}
+            </p>
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm table-grid" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
-            <thead className="text-left" style={{ borderBottom: "1px solid var(--card-border)" }}>
-              <tr>
-                <th className="py-3 pr-4" style={{ color: 'var(--foreground)' }}>Клиент</th>
-                <th className="py-3 pr-4" style={{ color: 'var(--foreground)' }}>Тип</th>
-                <th className="py-3 pr-4" style={{ color: 'var(--foreground)' }}>Остаток</th>
-                <th className="py-3 pr-4" style={{ color: 'var(--foreground)' }}>Окончание</th>
-                <th className="py-3" style={{ color: 'var(--foreground)' }}>Действия</th>
+              <thead style={{ borderBottom: "1px solid var(--card-border)" }}>
+                <tr>
+                  <th className="py-3 pr-4 text-left" style={{ color: 'var(--foreground)' }}>Клиент</th>
+                  <th className="py-3 pr-4 text-center" style={{ color: 'var(--foreground)' }}>Тип</th>
+                  <th className="py-3 pr-4 text-center" style={{ color: 'var(--foreground)' }}>Остаток</th>
+                  <th className="py-3 pr-4 text-center" style={{ color: 'var(--foreground)' }}>Когда купили</th>
+                  <th className="py-3 text-center" style={{ color: 'var(--foreground)' }}>Действия</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((r) => {
                 const leftColor = getLeftColor(r.left, r.total);
-                const expiringSoon = isExpiringSoon(r.until);
-                const expired = isExpired(r.until);
-                const untilDate = new Date(r.until);
+                  const purchasedDate = new Date(r.purchasedAt);
                 const initials = r.client.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
                 return (
                   <tr key={r.id} style={{ borderTop: "1px solid var(--card-border)" }} className="hover:bg-black/[.02] dark:hover:bg-white/[.03] transition-colors">
@@ -137,16 +338,36 @@ export default function BodySubscriptionsPage() {
                         <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0" style={{ background: '#6366F1' + "20", color: '#6366F1' }}>
                           {initials}
                         </div>
+                          {r.clientId ? (
+                            <Link 
+                              href={`/body/clients/${r.clientId}`}
+                              style={{ 
+                                color: 'var(--foreground)',
+                                textDecoration: 'none',
+                                cursor: 'pointer',
+                                transition: 'opacity 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.opacity = '0.7';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.opacity = '1';
+                              }}
+                            >
+                              {r.client}
+                            </Link>
+                          ) : (
                         <span style={{ color: 'var(--foreground)' }}>{r.client}</span>
+                          )}
                       </div>
                     </td>
-                    <td className="py-3 pr-4">
-                      <span className="px-2 py-0.5 rounded text-xs font-medium" style={{ background: '#6366F1' + "20", color: '#6366F1' }}>
+                      <td className="py-3 pr-4 text-center">
+                        <span className="px-2 py-0.5 rounded text-xs font-medium inline-block" style={{ background: '#6366F1' + "20", color: '#6366F1' }}>
                         {r.type}
                       </span>
                     </td>
-                    <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2">
+                      <td className="py-3 pr-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
                         <div className="flex-1 min-w-[80px]">
                           <div className="flex items-center justify-between text-xs mb-1">
                             <span className="text-zinc-500">Осталось</span>
@@ -165,28 +386,39 @@ export default function BodySubscriptionsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-3 pr-4">
-                      <div className="flex items-center gap-2">
+                      <td className="py-3 pr-4 text-center">
+                        <div className="flex items-center justify-center gap-2">
                         <Calendar className="h-3.5 w-3.5 text-zinc-500" />
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium" style={{ color: expired ? '#EF4444' : expiringSoon ? '#F59E0B' : 'var(--foreground)' }}>
-                            {untilDate.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" })}
+                          <span className="text-sm font-medium" style={{ color: 'var(--foreground)' }}>
+                            {purchasedDate.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}
                           </span>
-                          {expired && (
-                            <span className="text-xs text-red-500">Истёк</span>
-                          )}
-                          {expiringSoon && !expired && (
-                            <span className="text-xs text-amber-500">Скоро истечёт</span>
-                          )}
-                        </div>
                       </div>
                     </td>
-                    <td className="py-3">
-                      <div className="flex items-center gap-2">
-                        <button className="btn-outline text-xs" onClick={() => setEdit(r)}>
+                      <td className="py-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <button 
+                            className="btn-outline text-xs flex items-center gap-1.5" 
+                            onClick={() => handleExtend(r)}
+                            style={{ padding: "0.375rem 0.75rem" }}
+                          >
+                            <RefreshCw className="h-3 w-3" />
                           Продлить
                         </button>
-                        <button className="btn-outline text-xs">
+                          <button 
+                            className="btn-outline text-xs flex items-center gap-1.5"
+                            onClick={() => handleDeduct(r)}
+                            disabled={processingId === r.id || r.left <= 0}
+                            style={{ 
+                              padding: "0.375rem 0.75rem",
+                              opacity: (processingId === r.id || r.left <= 0) ? 0.6 : 1,
+                              cursor: (processingId === r.id || r.left <= 0) ? "not-allowed" : "pointer"
+                            }}
+                          >
+                            {processingId === r.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Minus className="h-3 w-3" />
+                            )}
                           Списать
                         </button>
                       </div>
@@ -197,6 +429,7 @@ export default function BodySubscriptionsPage() {
             </tbody>
           </table>
         </div>
+        )}
       </Card>
 
       <Modal open={open || !!edit} onClose={() => { setOpen(false); setEdit(null); }} title={edit ? "Редактировать абонемент" : "Добавить абонемент"}>
@@ -232,15 +465,6 @@ export default function BodySubscriptionsPage() {
                 style={{ background: 'var(--muted)', border: '1px solid var(--card-border)' }}
                 placeholder="0"
                 defaultValue={edit?.left || ""}
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block" style={{ color: 'var(--foreground)' }}>Дата окончания</label>
-              <input
-                type="date"
-                className="h-9 w-full px-3 text-sm"
-                style={{ background: 'var(--muted)', border: '1px solid var(--card-border)' }}
-                defaultValue={edit?.until || ""}
               />
             </div>
           </div>

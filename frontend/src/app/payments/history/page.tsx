@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { DateRange } from "react-day-picker";
 import Modal from "@/components/Modal";
 import Card from "@/components/Card";
+import DateRangePicker from "@/components/DateRangePicker";
 import {
   Download,
   Printer,
@@ -18,16 +21,21 @@ import {
   Filter,
   Loader2,
   Phone,
+  Trash2,
 } from "lucide-react";
-import { fetchPayments, Payment } from "@/lib/api";
+import { fetchPayments, deletePayment, Payment } from "@/lib/api";
 
 interface PaymentHistoryItem {
   id: string;
+  clientId: string | null;
   orderId: string;
   date: string;
   clientName: string;
   clientPhone: string;
   serviceName: string;
+  serviceCategory: string | null;
+  quantity: number;
+  hours: number | null;
   amount: number;
   paymentMethods: {
     cash: number;
@@ -54,12 +62,17 @@ const formatPrice = (price: number): string => {
 
 
 export default function PaymentHistoryPage() {
+  const router = useRouter();
   const [payments, setPayments] = useState<PaymentHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [serviceFilter, setServiceFilter] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [selectedPayment, setSelectedPayment] = useState<PaymentHistoryItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [paymentToDelete, setPaymentToDelete] = useState<PaymentHistoryItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     async function loadPayments() {
@@ -68,15 +81,19 @@ export default function PaymentHistoryPage() {
         const data = await fetchPayments(serviceFilter !== "all" ? serviceFilter : undefined);
         const mapped: PaymentHistoryItem[] = data.map((p: Payment) => ({
           id: p.public_id,
+          clientId: p.client_id || null,
           orderId: p.public_id.substring(0, 8).toUpperCase(),
           date: p.created_at,
           clientName: p.client_name || "Не указан",
           clientPhone: p.client_phone || "—",
-          serviceName: p.service_name,
+          serviceName: p.service_name || "Услуга",
+          serviceCategory: p.service_category || null,
+          quantity: p.quantity || 1,
+          hours: p.hours !== undefined && p.hours !== null ? p.hours : null,
           amount: p.total_amount,
           paymentMethods: {
-            cash: p.cash_amount,
-            transfer: p.transfer_amount,
+            cash: p.cash_amount || 0,
+            transfer: p.transfer_amount || 0,
           },
           status: p.status,
           comment: p.comment || undefined,
@@ -106,13 +123,68 @@ export default function PaymentHistoryPage() {
     
       const matchesService = serviceFilter === "all" || payment.serviceName === serviceFilter;
       
-      return matchesSearch && matchesService;
+      // Фильтр по датам
+      let matchesDate = true;
+      if (dateRange?.from || dateRange?.to) {
+        const paymentDate = new Date(payment.date);
+        paymentDate.setHours(0, 0, 0, 0);
+        
+        if (dateRange.from) {
+          const fromDate = new Date(dateRange.from);
+          fromDate.setHours(0, 0, 0, 0);
+          if (paymentDate < fromDate) {
+            matchesDate = false;
+          }
+        }
+        
+        if (dateRange.to) {
+          const toDate = new Date(dateRange.to);
+          toDate.setHours(23, 59, 59, 999);
+          if (paymentDate > toDate) {
+            matchesDate = false;
+          }
+        }
+      }
+      
+      return matchesSearch && matchesService && matchesDate;
     });
-  }, [payments, search, serviceFilter]);
+  }, [payments, search, serviceFilter, dateRange]);
 
   const handlePaymentClick = (payment: PaymentHistoryItem) => {
     setSelectedPayment(payment);
     setIsModalOpen(true);
+  };
+
+  const handleClientClick = (e: React.MouseEvent, payment: PaymentHistoryItem) => {
+    e.stopPropagation();
+    if (payment.clientId) {
+      router.push(`/body/clients/${payment.clientId}`);
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, payment: PaymentHistoryItem) => {
+    e.stopPropagation();
+    setPaymentToDelete(payment);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!paymentToDelete) return;
+    
+    try {
+      setDeleting(true);
+      await deletePayment(paymentToDelete.id);
+      setPayments(payments.filter(p => p.id !== paymentToDelete.id));
+      setDeleteModalOpen(false);
+      setPaymentToDelete(null);
+      setSelectedPayment(null);
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error("Failed to delete payment:", err);
+      alert("Не удалось удалить платеж. Попробуйте еще раз.");
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleDownloadReceipt = () => {
@@ -384,7 +456,8 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
               }}
             />
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.75rem", borderRadius: "8px", background: "var(--muted)", border: "1px solid var(--card-border)" }}>
               <Filter className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
               <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
@@ -463,6 +536,9 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                   <th style={{ padding: "1rem", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     ВРЕМЯ
                   </th>
+                  <th style={{ padding: "1rem", textAlign: "center", fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", width: "80px" }}>
+                    ДЕЙСТВИЯ
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -483,10 +559,85 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                     onClick={() => handlePaymentClick(payment)}
                   >
                     <td style={{ padding: "1rem", fontSize: "0.875rem", color: "var(--foreground)" }}>
-                      {payment.clientName}
+                      {payment.clientId ? (
+                        <button
+                          onClick={(e) => handleClientClick(e, payment)}
+                          style={{
+                            color: "var(--foreground)",
+                            textDecoration: "none",
+                            cursor: "pointer",
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            fontSize: "inherit",
+                            fontWeight: 500,
+                            transition: "color 0.2s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = "rgba(99, 102, 241, 1)";
+                            e.currentTarget.style.textDecoration = "underline";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = "var(--foreground)";
+                            e.currentTarget.style.textDecoration = "none";
+                          }}
+                        >
+                          {payment.clientName}
+                        </button>
+                      ) : (
+                        payment.clientName
+                      )}
                     </td>
                     <td style={{ padding: "1rem", fontSize: "0.875rem", color: "var(--foreground)", fontWeight: 500 }}>
-                      {payment.serviceName}
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                        {/* Категория услуги */}
+                        {payment.serviceCategory && (
+                          <span style={{ 
+                            fontSize: "0.75rem", 
+                            fontWeight: 600,
+                            color: "var(--muted-foreground)",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                          }}>
+                            {payment.serviceCategory}
+                          </span>
+                        )}
+                        {/* Название услуги (без категории и часов в скобках) */}
+                        <span style={{ 
+                          fontWeight: 600,
+                          color: "var(--foreground)",
+                        }}>
+                          {(() => {
+                            let name = payment.serviceName || "Услуга";
+                            // Убираем категорию и часы из названия, если они есть в скобках
+                            if (payment.serviceCategory && name.includes(`(${payment.hours}`)) {
+                              name = name.replace(/\s*\([^)]*\)\s*$/, "").trim();
+                            }
+                            return name;
+                          })()}
+                        </span>
+                        {/* Детали: часы или количество */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.125rem" }}>
+                          {payment.hours !== null && payment.hours !== undefined && payment.hours > 0 && (
+                            <span style={{ 
+                              fontSize: "0.8125rem", 
+                              color: "var(--muted-foreground)",
+                              fontWeight: 500,
+                            }}>
+                              {payment.hours} {payment.hours === 1 ? 'час' : payment.hours < 5 ? 'часа' : 'часов'}
+                            </span>
+                          )}
+                          {payment.hours === null && payment.quantity > 1 && (
+                            <span style={{ 
+                              fontSize: "0.8125rem", 
+                              color: "var(--muted-foreground)",
+                              fontWeight: 500,
+                            }}>
+                              {payment.quantity} шт.
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td style={{ padding: "1rem", fontSize: "0.875rem", color: "var(--foreground)", fontWeight: 600 }}>
                       {formatPrice(payment.amount)} сум
@@ -521,6 +672,34 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                     <td style={{ padding: "1rem", fontSize: "0.875rem", color: "var(--muted-foreground)" }}>
                       {formatDate(payment.date)}
                     </td>
+                    <td style={{ padding: "1rem", textAlign: "center" }}>
+                      <button
+                        onClick={(e) => handleDeleteClick(e, payment)}
+                        style={{
+                          padding: "0.5rem",
+                          borderRadius: "8px",
+                          border: "1px solid var(--card-border)",
+                          background: "var(--background)",
+                          color: "#EF4444",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                          e.currentTarget.style.borderColor = "#EF4444";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "var(--background)";
+                          e.currentTarget.style.borderColor = "var(--card-border)";
+                        }}
+                        title="Удалить платеж"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -528,6 +707,69 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
           </div>
         </Card>
       )}
+
+      {/* Модальное окно подтверждения удаления */}
+      <Modal
+        open={deleteModalOpen}
+        onClose={() => {
+          if (!deleting) {
+            setDeleteModalOpen(false);
+            setPaymentToDelete(null);
+          }
+        }}
+        title="Подтверждение удаления"
+      >
+        {paymentToDelete && (
+          <div style={{ padding: "0", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <p style={{ color: "var(--foreground)", fontSize: "0.875rem" }}>
+              Вы уверены, что хотите удалить платеж от <strong>{paymentToDelete.clientName}</strong> на сумму <strong>{formatPrice(paymentToDelete.amount)} сум</strong>?
+            </p>
+            <p style={{ color: "var(--muted-foreground)", fontSize: "0.8125rem" }}>
+              Это действие нельзя отменить.
+            </p>
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setDeleteModalOpen(false);
+                  setPaymentToDelete(null);
+                }}
+                disabled={deleting}
+                style={{
+                  padding: "0.625rem 1.25rem",
+                  borderRadius: "10px",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                  cursor: deleting ? "not-allowed" : "pointer",
+                  opacity: deleting ? 0.5 : 1,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                Отмена
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={deleting}
+                style={{
+                  padding: "0.625rem 1.25rem",
+                  borderRadius: "10px",
+                  border: "1.5px solid transparent",
+                  background: deleting ? "rgba(239, 68, 68, 0.5)" : "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
+                  color: "#FFFFFF",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  cursor: deleting ? "not-allowed" : "pointer",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {deleting ? "Удаление..." : "Удалить"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Модальное окно с деталями оплаты */}
       <Modal
@@ -597,9 +839,24 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                     <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>
                       Услуга
                     </div>
-                    <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--foreground)" }}>
+                    <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--foreground)", marginBottom: "0.25rem" }}>
                       {selectedPayment.serviceName}
                     </div>
+                    {selectedPayment.serviceCategory && (
+                      <div style={{ fontSize: "0.8125rem", color: "var(--muted-foreground)", marginBottom: "0.25rem" }}>
+                        {selectedPayment.serviceCategory}
+                      </div>
+                    )}
+                    {(selectedPayment.hours !== null && selectedPayment.hours > 0) && (
+                      <div style={{ fontSize: "0.8125rem", color: "var(--muted-foreground)" }}>
+                        {selectedPayment.hours} {selectedPayment.hours === 1 ? 'час' : selectedPayment.hours < 5 ? 'часа' : 'часов'}
+                      </div>
+                    )}
+                    {selectedPayment.hours === null && selectedPayment.quantity > 1 && (
+                      <div style={{ fontSize: "0.8125rem", color: "var(--muted-foreground)" }}>
+                        Количество: {selectedPayment.quantity} шт.
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -627,9 +884,39 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                     <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>
                       Клиент
                     </div>
-                    <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--foreground)" }}>
-                      {selectedPayment.clientName}
-                    </div>
+                    {selectedPayment.clientId ? (
+                      <button
+                        onClick={() => {
+                          setIsModalOpen(false);
+                          router.push(`/body/clients/${selectedPayment.clientId}`);
+                        }}
+                        style={{
+                          fontSize: "1rem",
+                          fontWeight: 600,
+                          color: "var(--foreground)",
+                          background: "none",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          textAlign: "left",
+                          transition: "color 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.color = "rgba(99, 102, 241, 1)";
+                          e.currentTarget.style.textDecoration = "underline";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.color = "var(--foreground)";
+                          e.currentTarget.style.textDecoration = "none";
+                        }}
+                      >
+                        {selectedPayment.clientName}
+                      </button>
+                    ) : (
+                      <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--foreground)" }}>
+                        {selectedPayment.clientName}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", paddingTop: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
@@ -731,7 +1018,7 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
               <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "1rem" }}>
                 Быстрые действия
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.75rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.75rem", marginBottom: "0.75rem" }}>
                 <button
                   onClick={handleDownloadReceipt}
                   style={{
@@ -857,6 +1144,38 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                   Копировать ссылку
                 </button>
               </div>
+              <button
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setPaymentToDelete(selectedPayment);
+                  setDeleteModalOpen(true);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "0.625rem",
+                  padding: "0.875rem 1rem",
+                  borderRadius: "10px",
+                  border: "1.5px solid #EF4444",
+                  background: "var(--background)",
+                  color: "#EF4444",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  width: "100%",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "var(--background)";
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Удалить платеж
+              </button>
             </div>
           </div>
         )}
