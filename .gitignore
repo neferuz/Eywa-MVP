@@ -49,6 +49,8 @@ yarn-error.log*
 out/
 build/
 dist/
+.npm-cache/
+*.cache
 
 # Database
 *.db
