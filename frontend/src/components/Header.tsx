@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Aperture, User, LogOut, Search, Menu } from "lucide-react";
+import { Bell, User, LogOut, Search, Menu, Zap, UserPlus, ChevronDown } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import DateRangePicker from "@/components/DateRangePicker";
+import { useTheme } from "@/components/ThemeProvider";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -14,6 +15,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [userEmail, setUserEmail] = useState<string>("admin@eywa.space");
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   
   useEffect(() => {
     const userStr = localStorage.getItem("auth_user");
@@ -26,6 +28,21 @@ export default function Header({ onMenuClick }: HeaderProps) {
       }
     }
   }, []);
+
+  // Закрываем выпадающее меню при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.profile-dropdown-container')) {
+        setProfileDropdownOpen(false);
+      }
+    };
+
+    if (profileDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [profileDropdownOpen]);
 
   const handleLogout = () => {
     localStorage.removeItem("auth_token");
@@ -60,19 +77,238 @@ export default function Header({ onMenuClick }: HeaderProps) {
     return { from: today, to: today };
   });
 
+  const dateFormatter = new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+
+  const formatDateRange = () => {
+    if (!range?.from) return "";
+    if (range.from && range.to) {
+      return `${dateFormatter.format(range.from)} - ${dateFormatter.format(range.to)}`;
+    }
+    return dateFormatter.format(range.from);
+  };
+
+  const { theme } = useTheme();
+
   return (
     <header
-      className="sticky top-0 z-20 w-full backdrop-blur-sm"
+      className="sticky top-0 z-20 w-full"
       style={{ 
-        background: "var(--panel)", 
-        borderBottom: "1px solid var(--card-border)"
+        background: theme === "dark" 
+          ? "rgba(31, 31, 31, 0.7)"
+          : "rgba(255, 255, 255, 0.7)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        isolation: "isolate"
       }}
     >
       <div className="flex flex-col gap-2.5 px-4 py-2.5 md:gap-4 md:px-6 md:py-4 lg:flex-row lg:items-center lg:gap-4">
+        {isDashboard ? (
+          <>
+            {/* Dashboard header - title left, icons right (desktop) */}
+            <div className="hidden lg:flex items-center w-full" style={{ justifyContent: "space-between" }}>
+              {/* Title - left */}
+              <div className="flex flex-col min-w-0">
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>Дашборд</h1>
+                <p className="text-xs text-zinc-500">Обзор статистики и ключевых метрик</p>
+              </div>
+
+              {/* Icons - right */}
+              <div className="flex items-center gap-2 md:gap-3 shrink-0 lg:ml-auto">
+                {/* Lightning with notification */}
+                <button
+                  className="relative h-10 w-10 rounded-lg flex items-center justify-center transition-all hover:bg-black/[.04] dark:hover:bg-white/[.06]"
+                  style={{ color: "var(--foreground)" }}
+                  title="Quick actions"
+                >
+                  <Zap className="h-5 w-5" />
+                  <span
+                    className="absolute top-1 right-1 h-2 w-2 rounded-full"
+                    style={{ background: "#000" }}
+                  />
+                </button>
+
+                {/* Bell notifications */}
+                <button
+                  className="h-10 w-10 rounded-lg flex items-center justify-center transition-all hover:bg-black/[.04] dark:hover:bg-white/[.06]"
+                  style={{ color: "var(--foreground)" }}
+                  title="Notifications"
+                >
+                  <Bell className="h-5 w-5" />
+                </button>
+
+                {/* Separator */}
+                <div className="h-6 w-px" style={{ background: "var(--card-border)" }} />
+
+                {/* Profile with dropdown */}
+                <div className="profile-dropdown-container" style={{ position: "relative" }}>
+                  <button 
+                    className="flex items-center gap-2"
+                    onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <div
+                      className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden"
+                      style={{
+                        background: "var(--muted)",
+                      }}
+                    >
+                      <User className="h-5 w-5" style={{ color: "var(--foreground)" }} />
+                    </div>
+                    <ChevronDown className="h-4 w-4" style={{ color: "var(--foreground)", opacity: 0.6 }} />
+                  </button>
+                  {profileDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 0.5rem)",
+                        right: 0,
+                        minWidth: "200px",
+                        borderRadius: "12px",
+                        background: "var(--panel)",
+                        border: "1px solid var(--card-border)",
+                        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
+                        zIndex: 1000,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          handleLogout();
+                          setProfileDropdownOpen(false);
+                        }}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.75rem",
+                          padding: "0.75rem 1rem",
+                          background: "transparent",
+                          border: "none",
+                          color: "#EF4444",
+                          fontSize: "0.875rem",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          transition: "background 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "transparent";
+                        }}
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>Выйти</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Dashboard header - mobile */}
+            <div className="w-full lg:hidden">
+              {/* Title on mobile */}
+              <div className="mb-3">
+                <h1 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Дашборд</h1>
+              </div>
+              {/* Icons on mobile */}
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  className="relative h-10 w-10 rounded-lg flex items-center justify-center transition-all hover:bg-black/[.04] dark:hover:bg-white/[.06]"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  <Zap className="h-5 w-5" />
+                  <span
+                    className="absolute top-1 right-1 h-2 w-2 rounded-full"
+                    style={{ background: "#000" }}
+                  />
+                </button>
+                <button
+                  className="h-10 w-10 rounded-lg flex items-center justify-center transition-all hover:bg-black/[.04] dark:hover:bg-white/[.06]"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  <Bell className="h-5 w-5" />
+                </button>
+                <div className="h-6 w-px" style={{ background: "var(--card-border)" }} />
+                <div className="profile-dropdown-container" style={{ position: "relative" }}>
+                  <button 
+                    className="flex items-center gap-2"
+                    onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <div
+                      className="h-10 w-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden"
+                      style={{
+                        background: "var(--muted)",
+                      }}
+                    >
+                      <User className="h-5 w-5" style={{ color: "var(--foreground)" }} />
+                    </div>
+                    <ChevronDown className="h-4 w-4" style={{ color: "var(--foreground)", opacity: 0.6 }} />
+                  </button>
+                  {profileDropdownOpen && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: "calc(100% + 0.5rem)",
+                        right: 0,
+                        minWidth: "200px",
+                        borderRadius: "12px",
+                        background: "var(--panel)",
+                        border: "1px solid var(--card-border)",
+                        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
+                        zIndex: 1000,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          handleLogout();
+                          setProfileDropdownOpen(false);
+                        }}
+                        style={{
+                          width: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.75rem",
+                          padding: "0.75rem 1rem",
+                          background: "transparent",
+                          border: "none",
+                          color: "#EF4444",
+                          fontSize: "0.875rem",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          transition: "background 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "transparent";
+                        }}
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span>Выйти</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* Regular header for other pages */
+          <>
         {/* Top row: Logo, burger, title (on mobile), and action buttons */}
         <div className="flex items-center justify-between gap-2 lg:flex-1 lg:justify-start lg:gap-3">
           <div className="flex items-center gap-2 lg:gap-3 min-w-0">
             {/* Burger menu button for mobile */}
+              {!isDashboard && (
             <button
               onClick={onMenuClick}
               className="lg:hidden h-9 w-9 rounded-xl flex items-center justify-center transition-all hover:scale-105 hover:bg-black/[.04] dark:hover:bg-white/[.06] shrink-0"
@@ -82,17 +318,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             >
               <Menu className="h-5 w-5" style={{ color: 'var(--foreground)' }} />
             </button>
-            
-            <div
-              className="h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 shrink-0"
-              style={{
-                background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
-                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
-                border: '1px solid var(--card-border)'
-              }}
-            >
-              <Aperture className="h-4 w-4 md:h-5 md:w-5 text-white" />
-            </div>
+              )}
 
             {/* Title on mobile - compact version */}
             {isScheduleLoadPage && !isDashboard && (
@@ -132,7 +358,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop - inline with logo */}
             {isScheduleLoadPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">Расписание и бронирования</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>Расписание и бронирования</h1>
                 <p className="text-xs text-zinc-500">Управляйте слотами, продлениями и оплатами в одном экране.</p>
               </div>
             )}
@@ -140,7 +366,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for payments history - inline with logo */}
             {isPaymentsHistoryPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">История оплат</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>История оплат</h1>
                 <p className="text-xs text-zinc-500">Список всех проведенных оплат и транзакций</p>
               </div>
             )}
@@ -148,7 +374,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for applications - inline with logo */}
             {isApplicationsPage && !isDashboard && !isApplicationDetailPage && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">Канбан лидов</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>Канбан лидов</h1>
                 <p className="text-xs text-zinc-500">Instagram и Telegram конвейер в одном экране</p>
               </div>
             )}
@@ -156,7 +382,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for body clients - inline with logo */}
             {isBodyClientsPage && !isDashboard && !isBodyClientDetailPage && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">EYWA BODY — Клиенты</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>EYWA BODY — Клиенты</h1>
                 <p className="text-xs text-zinc-500">Оперативное управление клиентами и занятостью студии.</p>
               </div>
             )}
@@ -164,7 +390,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for body client detail - inline with logo */}
             {isBodyClientDetailPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">Профиль клиента</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>Профиль клиента</h1>
                 <p className="text-xs text-zinc-500">Карта клиента: договор, абонемент, визиты, заметки.</p>
               </div>
             )}
@@ -172,7 +398,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for body trainers - inline with logo */}
             {isBodyTrainersPage && !isDashboard && !isBodyTrainerDetailPage && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">EYWA BODY — Тренеры</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>EYWA BODY — Тренеры</h1>
                 <p className="text-xs text-zinc-500">Команда специалистов по направлениям Body & Mind.</p>
               </div>
             )}
@@ -180,7 +406,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for body trainer detail - inline with logo */}
             {isBodyTrainerDetailPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">Профиль тренера</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>Профиль тренера</h1>
                 <p className="text-xs text-zinc-500">Карта тренера: контакты, направления, график, заметки.</p>
               </div>
             )}
@@ -188,7 +414,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for body schedule - inline with logo */}
             {isBodySchedulePage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">EYWA BODY · Расписание</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>EYWA BODY · Расписание</h1>
                 <p className="text-xs text-zinc-500">Аналитика загруженности и расписания занятий.</p>
               </div>
             )}
@@ -196,7 +422,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for body subscriptions - inline with logo */}
             {isBodySubscriptionsPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">EYWA BODY · Абонементы</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>EYWA BODY · Абонементы</h1>
                 <p className="text-xs text-zinc-500">Управление абонементами клиентов.</p>
               </div>
             )}
@@ -204,7 +430,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for staff list - inline with logo */}
             {isStaffListPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">Доступы и сотрудники</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>Доступы и сотрудники</h1>
                 <p className="text-xs text-zinc-500">Добавляйте сотрудников, настраивайте роли и доступ к страницам.</p>
               </div>
             )}
@@ -212,7 +438,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for body services - inline with logo */}
             {isBodyServicesPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">EYWA BODY · Услуги</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>EYWA BODY · Услуги</h1>
                 <p className="text-xs text-zinc-500">Создавайте, редактируйте и удаляйте услуги Body & Mind.</p>
               </div>
             )}
@@ -220,7 +446,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for coworking places - inline with logo */}
             {isCoworkingPlacesPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">Капсулы и места</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>Капсулы и места</h1>
                 <p className="text-xs text-zinc-500">Живой план посадочных зон: индивидуальные капсулы, командные пространства и ивент-зона. Обновляется вместе с CRM.</p>
               </div>
             )}
@@ -228,7 +454,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for kids services - inline with logo */}
             {isKidsServicesPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">KIDS услуги</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>KIDS услуги</h1>
                 <p className="text-xs text-zinc-500">Управление услугами для детских программ. Добавляйте, редактируйте и удаляйте услуги.</p>
               </div>
             )}
@@ -236,7 +462,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for marketing traffic - inline with logo */}
             {isMarketingTrafficPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">EYWA MARKETING · Источники заявок</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>EYWA MARKETING · Источники заявок</h1>
                 <p className="text-xs text-zinc-500">Актуальные лиды по каналам из Telegram / Instagram.</p>
               </div>
             )}
@@ -244,7 +470,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for marketing conversions - inline with logo */}
             {isMarketingConversionsPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">EYWA MARKETING · Конверсии</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>EYWA MARKETING · Конверсии</h1>
                 <p className="text-xs text-zinc-500">Воронка заявка → запись → визит → продажа по каналам.</p>
               </div>
             )}
@@ -252,7 +478,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for marketing ROI - inline with logo */}
             {isMarketingROIPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">EYWA MARKETING · ROI и эффективность</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>EYWA MARKETING · ROI и эффективность</h1>
                 <p className="text-xs text-zinc-500">Анализ возврата инвестиций и эффективности маркетинговых каналов.</p>
               </div>
             )}
@@ -260,132 +486,109 @@ export default function Header({ onMenuClick }: HeaderProps) {
             {/* Title on desktop for payments - inline with logo */}
             {isPaymentsPage && !isDashboard && (
               <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">Быстрая продажа услуг</h1>
+                <h1 className="text-lg font-medium" style={{ color: "var(--foreground)" }}>Быстрая продажа услуг</h1>
                 <p className="text-xs text-zinc-500">Выберите категорию, сформируйте чек и закрепите оплату за клиентом</p>
               </div>
             )}
 
-            {/* Title on desktop for dashboard - inline with logo */}
-            {isDashboard && (
-              <div className="hidden lg:flex flex-col min-w-0">
-                <h1 className="text-lg font-semibold">Общий обзор</h1>
-                <p className="text-xs text-zinc-500">Ключевые цифры EYWA SPACE за сегодня.</p>
-              </div>
-            )}
-
-            {/* Dashboard controls on desktop - after title */}
-            {isDashboard && (
-              <div className="hidden lg:flex items-center gap-4 flex-1">
-                <DateRangePicker value={range} onChange={setRange} />
-                <div className="flex items-center relative w-full sm:w-auto sm:min-w-[280px]">
-                  <Search className="absolute left-3.5 h-4 w-4 text-zinc-500 pointer-events-none" />
-                  <input
-                    placeholder="Поиск (клиент, занятость)..."
-                    className="h-9 md:h-10 w-full sm:w-72 pl-10 pr-4 text-sm rounded-xl focus:outline-none"
-                    style={{
-                      background: "var(--muted)",
-                      border: "1px solid var(--card-border)",
-                      color: "var(--foreground)",
-                    }}
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Action buttons - always visible on right */}
           <div className="flex items-center gap-2 md:gap-3 shrink-0 lg:ml-auto">
+            {/* Lightning with notification */}
             <button
-              className="relative h-9 w-9 md:h-10 md:w-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 hover:bg-black/[.04] dark:hover:bg-white/[.06]"
-              style={{ border: '1px solid var(--card-border)' }}
-              aria-label="Уведомления"
-              title="Уведомления"
+              className="relative h-9 w-9 md:h-10 md:w-10 rounded-lg flex items-center justify-center transition-all hover:bg-black/[.04] dark:hover:bg-white/[.06]"
+              style={{ color: "var(--foreground)" }}
+              title="Quick actions"
             >
-              <Bell className="h-4 w-4 md:h-4.5 md:w-4.5" style={{ color: 'var(--foreground)' }} />
-              <span 
-                className="absolute -top-0.5 -right-0.5 h-4 w-4 md:h-5 md:w-5 rounded-full flex items-center justify-center text-[9px] md:text-[10px] font-bold text-white shadow-lg"
-                style={{ background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 100%)' }}
-              >
-                3
-              </span>
+              <Zap className="h-4 w-4 md:h-5 md:w-5" />
+              <span
+                className="absolute top-1 right-1 h-2 w-2 rounded-full"
+                style={{ background: "#000" }}
+              />
             </button>
 
-            {/* Profile - icon only on mobile, full on desktop */}
+            {/* Bell notifications */}
             <button
-              className="md:hidden h-9 w-9 rounded-xl flex items-center justify-center transition-all hover:scale-105 hover:bg-black/[.04] dark:hover:bg-white/[.06]"
-              style={{ border: '1px solid var(--card-border)' }}
-              title="Профиль"
+              className="h-9 w-9 md:h-10 md:w-10 rounded-lg flex items-center justify-center transition-all hover:bg-black/[.04] dark:hover:bg-white/[.06]"
+              style={{ color: "var(--foreground)" }}
+              title="Notifications"
             >
-              <div 
-                className="h-7 w-7 rounded-full flex items-center justify-center shrink-0"
-                style={{ 
-                  background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)'
-                }}
-              >
-                <User className="h-3.5 w-3.5 text-white" />
-              </div>
+              <Bell className="h-4 w-4 md:h-5 md:w-5" />
             </button>
 
-            {/* Profile - full version on desktop */}
-            <div className="hidden md:flex items-center gap-2">
-              <button
-                className="flex items-center gap-2.5 rounded-xl px-3 py-2 transition-all hover:scale-105 hover:bg-black/[.04] dark:hover:bg-white/[.06]"
-                style={{ border: '1px solid var(--card-border)' }}
-                title="Профиль"
+            {/* Separator */}
+            <div className="h-6 w-px" style={{ background: "var(--card-border)" }} />
+
+            {/* Profile with dropdown */}
+            <div className="profile-dropdown-container" style={{ position: "relative" }}>
+              <button 
+                className="flex items-center gap-2"
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                style={{ cursor: "pointer" }}
               >
-                <div 
-                  className="h-8 w-8 rounded-full flex items-center justify-center shrink-0"
-                  style={{ 
-                    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)'
+                <div
+                  className="h-9 w-9 md:h-10 md:w-10 rounded-full flex items-center justify-center shrink-0 overflow-hidden"
+                  style={{
+                    background: "var(--muted)",
                   }}
                 >
-                  <User className="h-4 w-4 text-white" />
+                  <User className="h-4 w-4 md:h-5 md:w-5" style={{ color: "var(--foreground)" }} />
                 </div>
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-semibold leading-tight" style={{ color: 'var(--foreground)' }}>Администратор</span>
-                  <span className="text-[10px] text-zinc-500 leading-tight">{userEmail}</span>
+                <ChevronDown className="h-3 w-3 md:h-4 md:w-4" style={{ color: "var(--foreground)", opacity: 0.6 }} />
+              </button>
+              {profileDropdownOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "calc(100% + 0.5rem)",
+                    right: 0,
+                    minWidth: "200px",
+                    borderRadius: "12px",
+                    background: "var(--panel)",
+                    border: "1px solid var(--card-border)",
+                    boxShadow: "0 8px 24px rgba(0, 0, 0, 0.15)",
+                    zIndex: 1000,
+                    overflow: "hidden",
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setProfileDropdownOpen(false);
+                    }}
+                    style={{
+                      width: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "0.75rem 1rem",
+                      background: "transparent",
+                      border: "none",
+                      color: "#EF4444",
+                      fontSize: "0.875rem",
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      transition: "background 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span>Выйти</span>
+                  </button>
                 </div>
-              </button>
-              
-              <button
-                onClick={handleLogout}
-                className="h-10 w-10 rounded-xl flex items-center justify-center transition-all hover:scale-105 hover:bg-red-500/10"
-                style={{ border: '1px solid var(--card-border)' }}
-                title="Выход"
-              >
-                <LogOut className="h-4 w-4 text-red-500" />
-              </button>
+              )}
             </div>
           </div>
         </div>
-
-        {isDashboard && (
-          <div className="w-full lg:hidden">
-            <h1 className="text-base md:text-lg font-semibold truncate">Общий обзор</h1>
-            <p className="text-xs text-zinc-500">Ключевые цифры EYWA SPACE за сегодня.</p>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4 mt-2.5">
-              <DateRangePicker value={range} onChange={setRange} />
-              <div className="flex items-center relative w-full sm:w-auto sm:min-w-[280px]">
-                <Search className="absolute left-3.5 h-4 w-4 text-zinc-500 pointer-events-none" />
-                <input
-                  placeholder="Поиск (клиент, занятость)..."
-                  className="h-9 md:h-10 w-full sm:w-72 pl-10 pr-4 text-sm rounded-xl focus:outline-none"
-                  style={{
-                    background: "var(--muted)",
-                    border: "1px solid var(--card-border)",
-                    color: "var(--foreground)",
-                  }}
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
+          </>
         )}
+      </div>
 
         {isScheduleLoadPage && !isDashboard && (
           <div className="w-full lg:hidden">
@@ -536,8 +739,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
               <p className="text-xs text-zinc-500">Карта тренера: контакты, направления, график, заметки.</p>
             </div>
           )}
-
-      </div>
     </header>
   );
 }

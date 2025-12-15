@@ -33,13 +33,21 @@ import {
   Heart,
   History,
   X,
+  Settings,
+  Zap,
+  ArrowUpRight,
+  Plus,
+  LogOut,
+  ChevronUp,
 } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
+import { fetchStaff, type StaffMember } from "@/lib/api";
 
 type NavLeaf = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+  badge?: number;
 };
 
 type NavGroup = {
@@ -93,7 +101,6 @@ interface SidebarProps {
 
 export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
-  // Удалено: проверка логина теперь в LayoutWrapper
   const isActive = (href: string) => pathname === href;
   const [openBody, setOpenBody] = useState<boolean>(false);
   const [openCoworking, setOpenCoworking] = useState<boolean>(false);
@@ -101,8 +108,27 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const [openMarketing, setOpenMarketing] = useState<boolean>(false);
   const [collapsed, setCollapsed] = useState<boolean>(false);
   const [hoverExpand, setHoverExpand] = useState<boolean>(false);
+  const [openMembers, setOpenMembers] = useState<boolean>(false);
+  const [teamMembers, setTeamMembers] = useState<StaffMember[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState<boolean>(false);
   const hoverTimer = useRef<number | null>(null);
-  const { theme, toggle } = useTheme();
+  const { theme, snowEnabled, toggle, enableSnow } = useTheme();
+
+  // Загрузка участников команды
+  useEffect(() => {
+    const loadMembers = async () => {
+      try {
+        setLoadingMembers(true);
+        const staff = await fetchStaff();
+        setTeamMembers(staff.filter(m => m.is_active)); // Только активные участники
+      } catch (error) {
+        console.error("Ошибка загрузки участников:", error);
+      } finally {
+        setLoadingMembers(false);
+      }
+    };
+    loadMembers();
+  }, []);
 
   // Close sidebar on mobile when route changes
   useEffect(() => {
@@ -141,7 +167,6 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           ${onClose ? 'lg:relative fixed lg:translate-x-0 lg:static pointer-events-auto' : ''}
           ${onClose ? (isOpen ? 'translate-x-0' : '-translate-x-full') : ''}
         `}
-        style={{ background: "var(--background)", color: "var(--foreground)", borderRight: "1px solid var(--card-border)" }}
         onMouseEnter={() => {
           if (!collapsed) return;
           if (hoverTimer.current) window.clearTimeout(hoverTimer.current);
@@ -153,381 +178,494 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           hoverTimer.current = window.setTimeout(() => setHoverExpand(false), 180);
         }}
       >
-      <div className="px-3 py-4 flex items-center justify-between gap-2">
+        {/* Header */}
+        <div 
+          className="px-4 py-5 flex items-center justify-between border-b"
+          style={{ 
+            background: "var(--panel)", 
+            borderColor: "var(--card-border)" 
+          }}
+        >
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg overflow-hidden flex items-center justify-center" style={{ border: '1px solid var(--card-border)', background: 'var(--panel)' }}>
-            <div
-              className="h-full w-full flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)' }}
-            >
+            <div className="h-8 w-8 rounded-lg overflow-hidden flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
               <Aperture className="h-4 w-4 text-white" />
             </div>
-          </div>
           <div className={`flex flex-col transition-all duration-300 leading-tight ${(!collapsed || hoverExpand) ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-3 pointer-events-none select-none'}`}>
-            <span className="text-sm font-semibold" style={{ color: 'var(--foreground)' }}>EYWA SPACE</span>
-            <span className="text-xs text-zinc-500">CRM Platform</span>
+              <span className="text-base font-bold" style={{ color: "var(--foreground)" }}>EYWA</span>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Close button for mobile */}
           {onClose && (
             <button
               onClick={onClose}
-              className="lg:hidden h-8 w-8 rounded-lg flex items-center justify-center transition-all hover:scale-105 hover:bg-black/[.04] dark:hover:bg-white/[.06]"
+                className="lg:hidden h-8 w-8 rounded-lg flex items-center justify-center transition-all"
+                style={{ 
+                  background: "transparent",
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "var(--muted)"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
               title="Закрыть меню"
-              style={{ border: '1px solid var(--card-border)', background: 'var(--muted)' }}
             >
-              <X className="h-4 w-4" />
+                <X className="h-4 w-4" style={{ color: "var(--foreground)", opacity: 0.6 }} />
             </button>
           )}
           <button
             onClick={toggleCollapsed}
-            className="hidden lg:flex h-8 w-8 rounded-lg items-center justify-center transition-all hover:scale-105"
+              className="hidden lg:flex h-8 w-8 rounded-lg items-center justify-center transition-all"
+              style={{ 
+                background: "transparent",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--muted)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
             title={collapsed ? 'Развернуть меню' : 'Свернуть меню'}
-            style={{ border: '1px solid var(--card-border)', background: 'var(--muted)' }}
           >
-            {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+              {collapsed ? <PanelLeftOpen className="h-4 w-4" style={{ color: "var(--foreground)", opacity: 0.6 }} /> : <PanelLeftClose className="h-4 w-4" style={{ color: "var(--foreground)", opacity: 0.6 }} />}
           </button>
         </div>
       </div>
-      <div style={{ borderTop: '1px solid var(--card-border)' }} />
-      <nav className="px-2 pb-2 flex flex-col flex-1 min-h-0 pt-2">
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-1 pr-1 pb-20">
-        {/* Общие показатели */}
-        <Link
-          href="/"
-          className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-            isActive("/") ? "font-medium" : ""
-          }`}
-          title="Общие показатели"
-          style={
-            isActive('/')
-              ? { background: 'var(--panel)', border: '1px solid var(--card-border)', boxShadow: 'inset 3px 0 0 0 #10B981' }
-              : undefined
-          }
+
+        {/* Navigation */}
+        <nav 
+          className="flex-1 overflow-y-auto px-3 py-4"
+          style={{ background: "var(--panel)" }}
         >
-          <Home className="h-4 w-4" />
-          <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Общие показатели</span>
+          <div className="space-y-1">
+            {/* Dashboard */}
+        <Link
+              href="/"
+              className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium transition-colors`}
+              style={{
+                background: isActive("/") ? "var(--muted)" : "transparent",
+                color: "var(--foreground)",
+              }}
+              onMouseEnter={(e) => !isActive("/") && (e.currentTarget.style.background = "var(--muted)")}
+              onMouseLeave={(e) => !isActive("/") && (e.currentTarget.style.background = "transparent")}
+              title="Dashboard"
+        >
+              <Home className="h-5 w-5 flex-shrink-0" />
+              <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Dashboard</span>
         </Link>
 
-        {/* Расписание */}
+            {/* Tasks */}
         <Link
-          href="/schedule/load"
-          className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-            isActive("/schedule/load") ? "font-medium" : ""
-          }`}
-          title="Расписание"
-          style={
-            isActive('/schedule/load')
-              ? { background: 'var(--panel)', border: '1px solid var(--card-border)', boxShadow: 'inset 3px 0 0 0 #10B981' }
-              : undefined
-          }
+              href="/applications"
+              className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative`}
+              style={{
+                background: isActive("/applications") ? "var(--muted)" : "transparent",
+                color: "var(--foreground)",
+              }}
+              onMouseEnter={(e) => !isActive("/applications") && (e.currentTarget.style.background = "var(--muted)")}
+              onMouseLeave={(e) => !isActive("/applications") && (e.currentTarget.style.background = "transparent")}
+              title="Заявки"
         >
-          <CalendarClock className="h-4 w-4" />
-          <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Расписание</span>
+              <Briefcase className="h-5 w-5 flex-shrink-0" />
+              <span className={`truncate transition-all duration-200 flex-1 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Заявки</span>
+              {(!collapsed || hoverExpand) && (
+                <span 
+                  className="h-5 w-5 rounded-full text-xs font-semibold flex items-center justify-center"
+                  style={{ 
+                    background: "var(--muted)", 
+                    color: "var(--foreground)",
+                    opacity: 0.8
+                  }}
+                >
+                  2
+                </span>
+              )}
         </Link>
 
-        {/* Оплата */}
+            {/* Activity */}
         <Link
-          href="/payments"
-          className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-            isActive("/payments") ? "font-medium" : ""
-          }`}
-          title="Оплата"
-          style={
-            isActive('/payments')
-              ? { background: 'var(--panel)', border: '1px solid var(--card-border)', boxShadow: 'inset 3px 0 0 0 #10B981' }
-              : undefined
-          }
+              href="/schedule/load"
+              className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium transition-colors`}
+              style={{
+                background: isActive("/schedule/load") ? "var(--muted)" : "transparent",
+                color: "var(--foreground)",
+              }}
+              onMouseEnter={(e) => !isActive("/schedule/load") && (e.currentTarget.style.background = "var(--muted)")}
+              onMouseLeave={(e) => !isActive("/schedule/load") && (e.currentTarget.style.background = "transparent")}
+              title="Активность"
         >
-          <CreditCard className="h-4 w-4" />
-          <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Оплата</span>
+              <BarChart3 className="h-5 w-5 flex-shrink-0" />
+              <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Активность</span>
         </Link>
 
-        {/* История оплат */}
-        <Link
-          href="/payments/history"
-          className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-            isActive("/payments/history") ? "font-medium" : ""
-          }`}
-          title="История оплат"
-          style={
-            isActive('/payments/history')
-              ? { background: 'var(--panel)', border: '1px solid var(--card-border)', boxShadow: 'inset 3px 0 0 0 #10B981' }
-              : undefined
-          }
-        >
-          <History className="h-4 w-4" />
-          <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>История оплат</span>
-        </Link>
-
-        {/* Заявки */}
-        <Link
-          href="/applications"
-          className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-            isActive("/applications") ? "font-medium" : ""
-          }`}
-          title="Заявки (канбан)"
-          style={
-            isActive('/applications')
-              ? { background: 'var(--panel)', border: '1px solid var(--card-border)', boxShadow: 'inset 3px 0 0 0 #10B981' }
-              : undefined
-          }
-        >
-          <KanbanSquare className="h-4 w-4" />
-          <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Заявки (канбан)</span>
-        </Link>
-
-        {/* Клиенты */}
+            {/* Customers */}
         <Link
           href="/body/clients"
-          className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-            isActive("/body/clients") ? "font-medium" : ""
-          }`}
+              className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium transition-colors`}
+              style={{
+                background: isActive("/body/clients") ? "var(--muted)" : "transparent",
+                color: "var(--foreground)",
+              }}
+              onMouseEnter={(e) => !isActive("/body/clients") && (e.currentTarget.style.background = "var(--muted)")}
+              onMouseLeave={(e) => !isActive("/body/clients") && (e.currentTarget.style.background = "transparent")}
           title="Клиенты"
-          style={
-            isActive('/body/clients')
-              ? { background: 'var(--panel)', border: '1px solid var(--card-border)', boxShadow: 'inset 3px 0 0 0 #10B981' }
-              : undefined
-          }
         >
-          <Users className="h-4 w-4" />
+              <Users className="h-5 w-5 flex-shrink-0" />
           <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Клиенты</span>
         </Link>
 
-        {/* Тренеры */}
+            {/* Trainers */}
         <Link
           href="/body/trainers"
-          className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-            isActive("/body/trainers") ? "font-medium" : ""
-          }`}
+              className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium transition-colors`}
+              style={{
+                background: isActive("/body/trainers") ? "var(--muted)" : "transparent",
+                color: "var(--foreground)",
+              }}
+              onMouseEnter={(e) => !isActive("/body/trainers") && (e.currentTarget.style.background = "var(--muted)")}
+              onMouseLeave={(e) => !isActive("/body/trainers") && (e.currentTarget.style.background = "transparent")}
           title="Тренеры"
-          style={
-            isActive('/body/trainers')
-              ? { background: 'var(--panel)', border: '1px solid var(--card-border)', boxShadow: 'inset 3px 0 0 0 #10B981' }
-              : undefined
-          }
         >
-          <Users className="h-4 w-4" />
+              <Dumbbell className="h-5 w-5 flex-shrink-0" />
           <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Тренеры</span>
         </Link>
 
-        {/* Сотрудники */}
+            {/* Payments */}
         <Link
-          href={staffLink.href}
-          className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-            isActive(staffLink.href) ? "font-medium" : ""
-          }`}
-          title={staffLink.label}
-          style={
-            isActive(staffLink.href)
-              ? { background: 'var(--panel)', border: '1px solid var(--card-border)', boxShadow: 'inset 3px 0 0 0 #10B981' }
-              : undefined
-          }
+              href="/payments"
+              className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium transition-colors`}
+              style={{
+                background: isActive("/payments") ? "var(--muted)" : "transparent",
+                color: "var(--foreground)",
+              }}
+              onMouseEnter={(e) => !isActive("/payments") && (e.currentTarget.style.background = "var(--muted)")}
+              onMouseLeave={(e) => !isActive("/payments") && (e.currentTarget.style.background = "transparent")}
+              title="Оплаты"
         >
-          <staffLink.icon className="h-4 w-4" />
-          <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{staffLink.label}</span>
+              <CreditCard className="h-5 w-5 flex-shrink-0" />
+              <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Оплаты</span>
         </Link>
 
-        {/* Body&mind group */}
+            {/* Payment History */}
+        <Link
+              href="/payments/history"
+              className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium transition-colors`}
+              style={{
+                background: isActive("/payments/history") ? "var(--muted)" : "transparent",
+                color: "var(--foreground)",
+              }}
+              onMouseEnter={(e) => !isActive("/payments/history") && (e.currentTarget.style.background = "var(--muted)")}
+              onMouseLeave={(e) => !isActive("/payments/history") && (e.currentTarget.style.background = "transparent")}
+              title="История оплат"
+        >
+              <History className="h-5 w-5 flex-shrink-0" />
+              <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>История оплат</span>
+        </Link>
+
+            {/* Settings */}
+            <Link
+              href="/staff/list"
+              className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2.5 text-sm font-medium transition-colors`}
+              style={{
+                background: isActive("/staff/list") ? "var(--muted)" : "transparent",
+                color: "var(--foreground)",
+              }}
+              onMouseEnter={(e) => !isActive("/staff/list") && (e.currentTarget.style.background = "var(--muted)")}
+              onMouseLeave={(e) => !isActive("/staff/list") && (e.currentTarget.style.background = "transparent")}
+              title="Настройки"
+            >
+              <Settings className="h-5 w-5 flex-shrink-0" />
+              <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>Настройки</span>
+            </Link>
+          </div>
+
+          {/* Divider */}
+          <div className="my-4 border-t" style={{ borderColor: "var(--card-border)" }} />
+
+          {/* Projects Section */}
+          <div className="mb-4">
+            <div className={`flex items-center justify-between mb-2 px-3 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0'}`}>
+              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--foreground)", opacity: 0.6 }}>Направления</h3>
+            </div>
+            <div className="space-y-1">
+              {/* Body&mind */}
         <button
-          className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors border ${
-            openBody
-              ? 'border-[var(--card-border)] bg-[var(--muted)] text-[var(--foreground)]'
-              : 'border-[var(--card-border)]/60 bg-[var(--panel)]/45 text-[var(--foreground)]/70 hover:bg-[var(--panel)]/70 hover:text-[var(--foreground)]'
-          }`}
+                className="w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+                style={{
+                  background: openBody ? "var(--muted)" : "transparent",
+                  color: "var(--foreground)",
+                }}
+                onMouseEnter={(e) => !openBody && (e.currentTarget.style.background = "var(--muted)")}
+                onMouseLeave={(e) => !openBody && (e.currentTarget.style.background = "transparent")}
           onClick={() => { if (collapsed && !hoverExpand) return; setOpenBody((v) => !v); }}
           title={bodyGroup.label}
         >
           <span className="flex items-center gap-3">
-            <bodyGroup.icon className="h-4 w-4" />
+                  <Dumbbell className="h-5 w-5 flex-shrink-0" />
             <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{bodyGroup.label}</span>
           </span>
-          {!collapsed && (openBody ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
+                {(!collapsed || hoverExpand) && (openBody ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
         </button>
         {(!collapsed || hoverExpand) && openBody && (
-          <div className="ml-2 space-y-1 p-1" style={{ background: 'var(--group-bg)', border: '1px solid var(--group-border)', borderRadius: 14 }}>
+                <div className="ml-4 space-y-1 border-l-2 pl-3" style={{ borderColor: "var(--card-border)" }}>
             {bodyGroup.children.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-                  isActive(item.href) ? "font-medium" : ""
-                }`}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
+                      style={{
+                        color: "var(--foreground)",
+                        opacity: isActive(item.href) ? 1 : 0.7,
+                        fontWeight: isActive(item.href) ? 600 : 400,
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                      onMouseLeave={(e) => !isActive(item.href) && (e.currentTarget.style.opacity = "0.7")}
                 title={item.label}
-                style={
-                  isActive(item.href)
-                    ? {
-                        background: 'var(--panel)',
-                        border: '1px solid var(--card-border)',
-                        boxShadow: 'inset 3px 0 0 0 #10B981',
-                      }
-                    : undefined
-                }
               >
-                <item.icon className="h-4 w-4" />
-                <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{item.label}</span>
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{item.label}</span>
               </Link>
             ))}
           </div>
         )}
 
-        {/* EYWA COWORKING group */}
+              {/* Коворкинг */}
         <button
-          className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors border ${
-            openCoworking
-              ? 'border-[var(--card-border)] bg-[var(--muted)] text-[var(--foreground)]'
-              : 'border-[var(--card-border)]/60 bg-[var(--panel)]/45 text-[var(--foreground)]/70 hover:bg-[var(--panel)]/70 hover:text-[var(--foreground)]'
-          }`}
+                className="w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+                style={{
+                  background: openCoworking ? "var(--muted)" : "transparent",
+                  color: "var(--foreground)",
+                }}
+                onMouseEnter={(e) => !openCoworking && (e.currentTarget.style.background = "var(--muted)")}
+                onMouseLeave={(e) => !openCoworking && (e.currentTarget.style.background = "transparent")}
           onClick={() => { if (collapsed && !hoverExpand) return; setOpenCoworking((v) => !v); }}
           title={coworkingGroup.label}
         >
           <span className="flex items-center gap-3">
-            <coworkingGroup.icon className="h-4 w-4" />
+                  <Building2 className="h-5 w-5 flex-shrink-0" />
             <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{coworkingGroup.label}</span>
           </span>
-          {!collapsed && (openCoworking ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
+                {(!collapsed || hoverExpand) && (openCoworking ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
         </button>
         {(!collapsed || hoverExpand) && openCoworking && (
-          <div className="ml-2 space-y-1 p-1" style={{ background: 'var(--group-bg)', border: '1px solid var(--group-border)', borderRadius: 14 }}>
+                <div className="ml-4 space-y-1 border-l-2 pl-3" style={{ borderColor: "var(--card-border)" }}>
             {coworkingGroup.children.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-                  isActive(item.href) ? "font-medium" : ""
-                }`}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
+                      style={{
+                        color: "var(--foreground)",
+                        opacity: isActive(item.href) ? 1 : 0.7,
+                        fontWeight: isActive(item.href) ? 600 : 400,
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                      onMouseLeave={(e) => !isActive(item.href) && (e.currentTarget.style.opacity = "0.7")}
                 title={item.label}
-                style={
-                  isActive(item.href)
-                    ? {
-                        background: 'var(--panel)',
-                        border: '1px solid var(--card-border)',
-                        boxShadow: 'inset 3px 0 0 0 #10B981',
-                      }
-                    : undefined
-                }
               >
-                <item.icon className="h-4 w-4" />
-                <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{item.label}</span>
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{item.label}</span>
               </Link>
             ))}
           </div>
         )}
 
-        {/* KIDS group */}
+              {/* KIDS */}
         <button
-          className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors border ${
-            openKids
-              ? 'border-[var(--card-border)] bg-[var(--muted)] text-[var(--foreground)]'
-              : 'border-[var(--card-border)]/60 bg-[var(--panel)]/45 text-[var(--foreground)]/70 hover:bg-[var(--panel)]/70 hover:text-[var(--foreground)]'
-          }`}
+                className="w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+                style={{
+                  background: openKids ? "var(--muted)" : "transparent",
+                  color: "var(--foreground)",
+                }}
+                onMouseEnter={(e) => !openKids && (e.currentTarget.style.background = "var(--muted)")}
+                onMouseLeave={(e) => !openKids && (e.currentTarget.style.background = "transparent")}
           onClick={() => { if (collapsed && !hoverExpand) return; setOpenKids((v) => !v); }}
           title={kidsGroup.label}
         >
           <span className="flex items-center gap-3">
-            <kidsGroup.icon className="h-4 w-4" />
+                  <Heart className="h-5 w-5 flex-shrink-0" />
             <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{kidsGroup.label}</span>
           </span>
-          {!collapsed && (openKids ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
+                {(!collapsed || hoverExpand) && (openKids ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
         </button>
         {(!collapsed || hoverExpand) && openKids && (
-          <div className="ml-2 space-y-1 p-1" style={{ background: 'var(--group-bg)', border: '1px solid var(--group-border)', borderRadius: 14 }}>
+                <div className="ml-4 space-y-1 border-l-2 pl-3" style={{ borderColor: "var(--card-border)" }}>
             {kidsGroup.children.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-                  isActive(item.href) ? "font-medium" : ""
-                }`}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
+                      style={{
+                        color: "var(--foreground)",
+                        opacity: isActive(item.href) ? 1 : 0.7,
+                        fontWeight: isActive(item.href) ? 600 : 400,
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                      onMouseLeave={(e) => !isActive(item.href) && (e.currentTarget.style.opacity = "0.7")}
                 title={item.label}
-                style={
-                  isActive(item.href)
-                    ? {
-                        background: 'var(--panel)',
-                        border: '1px solid var(--card-border)',
-                        boxShadow: 'inset 3px 0 0 0 #10B981',
-                      }
-                    : undefined
-                }
               >
-                <item.icon className="h-4 w-4" />
-                <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{item.label}</span>
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{item.label}</span>
               </Link>
             ))}
           </div>
         )}
 
-        {/* EYWA MARKETING group */}
+              {/* Маркетинг */}
         <button
-          className={`w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors border ${
-            openMarketing
-              ? 'border-[var(--card-border)] bg-[var(--muted)] text-[var(--foreground)]'
-              : 'border-[var(--card-border)]/60 bg-[var(--panel)]/45 text-[var(--foreground)]/70 hover:bg-[var(--panel)]/70 hover:text-[var(--foreground)]'
-          }`}
+                className="w-full flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+                style={{
+                  background: openMarketing ? "var(--muted)" : "transparent",
+                  color: "var(--foreground)",
+                }}
+                onMouseEnter={(e) => !openMarketing && (e.currentTarget.style.background = "var(--muted)")}
+                onMouseLeave={(e) => !openMarketing && (e.currentTarget.style.background = "transparent")}
           onClick={() => { if (collapsed && !hoverExpand) return; setOpenMarketing((v) => !v); }}
           title={marketingGroup.label}
         >
           <span className="flex items-center gap-3">
-            <marketingGroup.icon className="h-4 w-4" />
+                  <Megaphone className="h-5 w-5 flex-shrink-0" />
             <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{marketingGroup.label}</span>
           </span>
-          {!collapsed && (openMarketing ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
+                {(!collapsed || hoverExpand) && (openMarketing ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
         </button>
         {(!collapsed || hoverExpand) && openMarketing && (
-          <div className="ml-2 space-y-1 p-1" style={{ background: 'var(--group-bg)', border: '1px solid var(--group-border)', borderRadius: 14 }}>
+                <div className="ml-4 space-y-1 border-l-2 pl-3" style={{ borderColor: "var(--card-border)" }}>
             {marketingGroup.children.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group flex items-center ${collapsed && !hoverExpand ? 'justify-center gap-0' : 'gap-3'} rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06] ${
-                  isActive(item.href) ? "font-medium" : ""
-                }`}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors"
+                      style={{
+                        color: "var(--foreground)",
+                        opacity: isActive(item.href) ? 1 : 0.7,
+                        fontWeight: isActive(item.href) ? 600 : 400,
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                      onMouseLeave={(e) => !isActive(item.href) && (e.currentTarget.style.opacity = "0.7")}
                 title={item.label}
-                style={
-                  isActive(item.href)
-                    ? {
-                        background: 'var(--panel)',
-                        border: '1px solid var(--card-border)',
-                        boxShadow: 'inset 3px 0 0 0 #10B981',
-                      }
-                    : undefined
-                }
               >
-                <item.icon className="h-4 w-4" />
-                <span className={`truncate transition-all duration-200 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>{item.label}</span>
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{item.label}</span>
               </Link>
             ))}
           </div>
         )}
-
+            </div>
         </div>
 
-        <div className="pt-2" style={{ borderTop: '1px solid var(--card-border)', background: 'var(--background)' }}>
+          {/* Divider */}
+          <div className="my-4 border-t" style={{ borderColor: "var(--card-border)" }} />
+
+          {/* Members Section */}
+          <div>
+            <div className={`flex items-center justify-between mb-2 px-3 ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0'}`}>
+              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--foreground)", opacity: 0.6 }}>Участники</h3>
+              {(!collapsed || hoverExpand) && (
+                <button 
+                  className="h-6 w-6 rounded-lg flex items-center justify-center transition-colors" 
+                  title={openMembers ? "Скрыть участников" : "Показать участников"}
+                  onClick={() => setOpenMembers(!openMembers)}
+                  style={{ background: "transparent" }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = "var(--muted)"}
+                  onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                >
+                  {openMembers ? (
+                    <ChevronUp className="h-4 w-4" style={{ color: "var(--foreground)", opacity: 0.6 }} />
+                  ) : (
+                    <Plus className="h-4 w-4" style={{ color: "var(--foreground)", opacity: 0.6 }} />
+                  )}
+                </button>
+              )}
+            </div>
+            {/* Выпадающий список участников с анимацией */}
+            <div 
+              className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                openMembers ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+              }`}
+            >
+              <div className="space-y-2 pt-2">
+                {loadingMembers ? (
+                  <div className="px-3 py-2 text-xs" style={{ color: "var(--foreground)", opacity: 0.6 }}>Загрузка...</div>
+                ) : teamMembers.length === 0 ? (
+                  <div className="px-3 py-2 text-xs" style={{ color: "var(--foreground)", opacity: 0.6 }}>Нет участников</div>
+                ) : (
+                  teamMembers.map((member) => {
+                    const initials = member.name 
+                      ? member.name
+                          .split(" ")
+                          .map((p) => p[0])
+                          .join("")
+                          .slice(0, 2)
+                          .toUpperCase()
+                      : member.email.slice(0, 2).toUpperCase();
+                    
+                    const roleLabel = 
+                      member.role === "super_admin" ? "Супер Админ"
+                      : member.role === "admin" ? "Админ"
+                      : "Менеджер";
+                    
+                    const roleColor =
+                      member.role === "super_admin" ? "#EF4444"
+                      : member.role === "admin" ? "#F59E0B"
+                      : "#0EA5E9";
+
+                    return (
+                      <div
+                        key={member.id}
+                        className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${(!collapsed || hoverExpand) ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                        style={{ background: "transparent" }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "var(--muted)"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                      >
+                        <div className="relative flex-shrink-0">
+                          <div 
+                            className="h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-semibold"
+                            style={{ background: roleColor }}
+                          >
+                            {initials}
+                          </div>
+                          <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-white dark:border-[#1F1F1F]" />
+                        </div>
+                        {(!collapsed || hoverExpand) && (
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate" style={{ color: "var(--foreground)" }}>{member.name || member.email}</div>
+                            <div className="text-xs truncate" style={{ color: "var(--foreground)", opacity: 0.6 }}>{roleLabel}</div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        {/* Footer with rounded bottom corners */}
+        <div 
+          className="border-t px-3 py-3 rounded-b-2xl"
+          style={{ 
+            background: "var(--panel)", 
+            borderColor: "var(--card-border)" 
+          }}
+        >
           <button
-            className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors hover:bg-black/[.04] dark:hover:bg-white/[.06]"
-            onClick={toggle}
-            title="Переключить тему"
+            className="w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+            style={{ 
+              background: "transparent",
+              color: "var(--foreground)",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.background = "var(--muted)"}
+            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+            onClick={() => {
+              if (theme === "light") {
+                enableSnow();
+              } else {
+                toggle();
+              }
+            }}
+            title={theme === "light" ? "Включить снег" : "Переключить тему"}
           >
-            <span className="flex items-center gap-3">
-              {theme === "light" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              {!collapsed && <span className="truncate">Тема: {theme === "light" ? "светлая" : "тёмная"}</span>}
-            </span>
-            {!collapsed && (
-              <span className="inline-block h-4 w-8 rounded-full relative" style={{ border: '1px solid var(--card-border)' }}>
-                <span
-                  className={`absolute top-1/2 -translate-y-1/2 h-3 w-3 rounded-full bg-current transition-all ${
-                    theme === "dark" ? "right-0.5" : "left-0.5"
-                  }`}
-                />
-              </span>
+            {theme === "light" ? <Sun className="h-5 w-5 flex-shrink-0" /> : <Moon className="h-5 w-5 flex-shrink-0" />}
+            {(!collapsed || hoverExpand) && (
+              <span className="truncate">Тема: {theme === "light" ? "светлая" : "Снег"}</span>
             )}
           </button>
         </div>
-      </nav>
     </aside>
     </>
   );
 }
-
-

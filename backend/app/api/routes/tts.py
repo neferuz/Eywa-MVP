@@ -107,12 +107,12 @@ async def text_to_speech(
     voice_id = settings.elevenlabs_voice_id
     
     # Используем значения по умолчанию, если не заданы в .env
-    if not api_key:
+    if not api_key or api_key == "":
         api_key = "sk_40b82c8f085107b551eef776ddcbbaea2a77cb902c2a4c43"  # Ваш API ключ
-    if not voice_id:
+    if not voice_id or voice_id == "":
         voice_id = "aG9q1I1wTbfHh5sbpJnp"  # Voice ID из вашего .env
     
-    if not api_key:
+    if not api_key or api_key == "":
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="ElevenLabs TTS не настроен. Проверьте ELEVENLABS_API_KEY и ELEVENLABS_VOICE_ID"

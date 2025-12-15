@@ -4,7 +4,7 @@ import Card from "@/components/Card";
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Aperture, Lock, Mail } from "lucide-react";
+import { Aperture, Lock, Mail, Loader2, AlertCircle } from "lucide-react";
 import { loginApi, getCurrentUserApi } from "@/lib/api";
 
 export default function LoginPage() {
@@ -57,74 +57,211 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center px-4 overflow-hidden" style={{ background: "var(--background)" }}>
-      <div className="w-full max-w-md">
-        <div className="flex items-center justify-center mb-6">
+    <div 
+      style={{ 
+        position: "fixed",
+        inset: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1rem",
+        overflow: "hidden",
+        background: "var(--background)"
+      }}
+    >
+      <div style={{ width: "100%", maxWidth: "400px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "1.5rem" }}>
           <div
-            className="h-12 w-12 rounded-2xl flex items-center justify-center"
             style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
               boxShadow: "0 6px 20px rgba(99, 102, 241, 0.35)",
             }}
           >
-            <Aperture className="h-5 w-5 text-white" />
+            <Aperture className="h-5 w-5" style={{ color: "#fff" }} />
           </div>
         </div>
-        <Card>
-          <form onSubmit={onSubmit} className="space-y-4">
-            <div className="text-center mb-2">
-              <h1 className="text-xl font-semibold" style={{ color: "var(--foreground)" }}>Вход в админ-панель</h1>
-              <p className="text-sm text-zinc-500 mt-1">Только для администраторов</p>
+        <Card style={{ padding: "2rem" }}>
+          <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            <div style={{ textAlign: "center", marginBottom: "0.5rem" }}>
+              <h1 style={{ 
+                fontSize: "1.25rem", 
+                fontWeight: 600, 
+                color: "var(--foreground)",
+                marginBottom: "0.25rem"
+              }}>
+                Вход в админ-панель
+              </h1>
+              <p style={{ 
+                fontSize: "0.875rem", 
+                color: "var(--muted-foreground)" 
+              }}>
+                Только для администраторов
+              </p>
             </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block" style={{ color: "var(--foreground)" }}>Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <label style={{ 
+                fontSize: "0.8125rem", 
+                fontWeight: 600, 
+                color: "var(--foreground)", 
+                letterSpacing: "-0.01em",
+                marginBottom: "0.375rem"
+              }}>
+                Email
+              </label>
+              <div style={{ position: "relative" }}>
+                <Mail 
+                  className="absolute left-3 h-4 w-4 pointer-events-none" 
+                  style={{ 
+                    color: "var(--muted-foreground)", 
+                    top: "50%", 
+                    transform: "translateY(-50%)" 
+                  }} 
+                />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  className="h-10 w-full pl-9 pr-3 text-sm"
                   placeholder="admin@eywa.com"
-                  style={{ background: "var(--muted)", border: "1px solid var(--card-border)" }}
+                  style={{
+                    width: "100%",
+                    paddingLeft: "2.5rem",
+                    paddingRight: "0.875rem",
+                    paddingTop: "0.625rem",
+                    paddingBottom: "0.625rem",
+                    borderRadius: "12px",
+                    border: "1.5px solid var(--card-border)",
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                    fontSize: "0.875rem",
+                    transition: "all 0.2s ease",
+                    fontFamily: "inherit",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
                 />
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block" style={{ color: "var(--foreground)" }}>Пароль</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <label style={{ 
+                fontSize: "0.8125rem", 
+                fontWeight: 600, 
+                color: "var(--foreground)", 
+                letterSpacing: "-0.01em",
+                marginBottom: "0.375rem"
+              }}>
+                Пароль
+              </label>
+              <div style={{ position: "relative" }}>
+                <Lock 
+                  className="absolute left-3 h-4 w-4 pointer-events-none" 
+                  style={{ 
+                    color: "var(--muted-foreground)", 
+                    top: "50%", 
+                    transform: "translateY(-50%)" 
+                  }} 
+                />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  className="h-10 w-full pl-9 pr-3 text-sm"
                   placeholder="••••••••"
-                  style={{ background: "var(--muted)", border: "1px solid var(--card-border)" }}
+                  style={{
+                    width: "100%",
+                    paddingLeft: "2.5rem",
+                    paddingRight: "0.875rem",
+                    paddingTop: "0.625rem",
+                    paddingBottom: "0.625rem",
+                    borderRadius: "12px",
+                    border: "1.5px solid var(--card-border)",
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                    fontSize: "0.875rem",
+                    transition: "all 0.2s ease",
+                    fontFamily: "inherit",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
                 />
               </div>
             </div>
+
             {error && (
-              <div className="text-sm text-red-500 text-center bg-red-50 dark:bg-red-900/20 p-2 rounded">
-                {error}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.75rem 1rem",
+                borderRadius: "12px",
+                background: "rgba(239, 68, 68, 0.1)",
+                color: "#EF4444",
+                fontSize: "0.875rem",
+              }}>
+                <AlertCircle className="h-4 w-4" />
+                <span>{error}</span>
               </div>
             )}
-            <div className="flex justify-center">
+
+            <div style={{ display: "flex", justifyContent: "center", marginTop: "0.5rem" }}>
               <button
                 type="submit"
-                className="btn-outline h-10 px-6 text-sm font-medium"
                 disabled={loading}
                 style={{
-                  background: loading ? "#6366F1" + "20" : undefined,
-                  color: loading ? "#6366F1" : undefined,
-                  borderColor: loading ? "#6366F1" : undefined,
+                  padding: "0.625rem 1.25rem",
+                  borderRadius: "12px",
+                  border: "none",
+                  background: loading ? "#9ca3af" : "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                  color: "#fff",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  transition: "all 0.2s ease",
+                  boxShadow: loading ? "none" : "0 4px 12px rgba(99, 102, 241, 0.25)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  justifyContent: "center",
+                  opacity: loading ? 0.5 : 1,
+                  pointerEvents: loading ? "none" : "auto",
+                  minWidth: "120px",
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    e.currentTarget.style.boxShadow = "0 6px 16px rgba(99, 102, 241, 0.35)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) {
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.25)";
+                  }
                 }}
               >
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 {loading ? "Входим..." : "Войти"}
               </button>
             </div>

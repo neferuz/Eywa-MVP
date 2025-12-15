@@ -62,39 +62,28 @@ export default function DateRangePicker({ value, onChange }: Props) {
         />
       )}
 
-      <div className="relative sm:flex-none" ref={containerRef}>
+      <div className="relative" ref={containerRef}>
         <button
           type="button"
           onClick={open ? handleClose : handleOpen}
-          className="flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all hover:scale-[1.02]"
+          className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+            open ? "border-2" : "border"
+          }`}
           style={{ 
-            background: "var(--panel)", 
-            border: "1px solid var(--card-border)",
-            boxShadow: open ? "0 4px 12px rgba(0, 0, 0, 0.1)" : "none",
+            borderColor: open ? "var(--foreground)" : "var(--card-border)",
+            color: "var(--foreground)",
+            background: open ? "var(--panel)" : "transparent",
+            opacity: open ? 1 : 0.5,
           }}
         >
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg" style={{ background: "var(--muted)" }}>
-            <Calendar className="h-4 w-4" style={{ color: "var(--foreground)" }} />
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: "var(--muted)" }}>
-              <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
-                с
+          <Calendar className="h-4 w-4" />
+          <span className="whitespace-nowrap">
+            {value?.from && value?.to
+              ? `${formatter.format(value.from)} - ${formatter.format(value.to)}`
+              : value?.from
+              ? formatter.format(value.from)
+              : "Выберите даты"}
               </span>
-              <span className="text-sm font-semibold whitespace-nowrap" style={{ color: "var(--foreground)" }}>
-                {value?.from ? formatter.format(value.from) : "—"}
-              </span>
-            </div>
-            <div className="h-4 w-px" style={{ background: "var(--card-border)" }} />
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: "var(--muted)" }}>
-              <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
-                по
-              </span>
-              <span className="text-sm font-semibold whitespace-nowrap" style={{ color: "var(--foreground)" }}>
-                {value?.to ? formatter.format(value.to) : "—"}
-              </span>
-            </div>
-          </div>
         </button>
 
         {open && (

@@ -73,6 +73,9 @@ export default function PaymentHistoryPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [paymentToDelete, setPaymentToDelete] = useState<PaymentHistoryItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   useEffect(() => {
     async function loadPayments() {
@@ -179,11 +182,48 @@ export default function PaymentHistoryPage() {
       setPaymentToDelete(null);
       setSelectedPayment(null);
       setIsModalOpen(false);
+      setSelectedPayments(new Set(selectedPayments).delete(paymentToDelete.id) ? new Set(selectedPayments) : new Set());
     } catch (err) {
       console.error("Failed to delete payment:", err);
       alert("Не удалось удалить платеж. Попробуйте еще раз.");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedPayments(new Set(filteredPayments.map(p => p.id)));
+    } else {
+      setSelectedPayments(new Set());
+    }
+  };
+
+  const handleSelectPayment = (paymentId: string, checked: boolean) => {
+    const newSelected = new Set(selectedPayments);
+    if (checked) {
+      newSelected.add(paymentId);
+    } else {
+      newSelected.delete(paymentId);
+    }
+    setSelectedPayments(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedPayments.size === 0) return;
+    
+    try {
+      setBulkDeleting(true);
+      const deletePromises = Array.from(selectedPayments).map(id => deletePayment(id));
+      await Promise.all(deletePromises);
+      setPayments(payments.filter(p => !selectedPayments.has(p.id)));
+      setSelectedPayments(new Set());
+      setBulkDeleteModalOpen(false);
+    } catch (err) {
+      console.error("Failed to delete payments:", err);
+      alert("Не удалось удалить некоторые платежи. Попробуйте еще раз.");
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -423,10 +463,133 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
     }
   };
 
+  // Генерируем инициалы для аватара
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((p) => p[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  };
+
+  // Генерируем цвет для аватара на основе имени
+  const getAvatarColor = (name: string) => {
+    const colors = [
+      "#6366F1", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", 
+      "#EC4899", "#06B6D4", "#84CC16", "#F97316", "#14B8A6"
+    ];
+    const index = name.charCodeAt(0) % colors.length;
+    return colors[index];
+  };
+
   return (
-    <div style={{ padding: "2rem", maxWidth: "1400px", margin: "0 auto" }}>
-      {/* Поиск и фильтры */}
-      <Card style={{ padding: "1rem", marginBottom: "1.5rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      {/* Header with title and count */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <h1 style={{ fontSize: "1.875rem", fontWeight: 700, color: "var(--foreground)", margin: 0 }}>
+            История оплат
+          </h1>
+          <span style={{
+            padding: "0.25rem 0.75rem",
+            borderRadius: "9999px",
+            background: "var(--muted)",
+            border: "1px solid var(--card-border)",
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            color: "var(--foreground)",
+          }}>
+            {filteredPayments.length} {filteredPayments.length === 1 ? "оплата" : filteredPayments.length < 5 ? "оплаты" : "оплат"}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: "0.75rem" }}>
+          <button
+            style={{
+              padding: "0.625rem 1rem",
+              borderRadius: "8px",
+              border: "1px solid var(--card-border)",
+              background: "var(--background)",
+              color: "var(--foreground)",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--muted)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "var(--background)";
+            }}
+          >
+            Настройки
+          </button>
+          <button
+            style={{
+              padding: "0.625rem 1rem",
+              borderRadius: "8px",
+              border: "1px solid var(--card-border)",
+              background: "var(--foreground)",
+              color: "var(--background)",
+              fontSize: "0.875rem",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.2s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.opacity = "0.9";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.opacity = "1";
+            }}
+          >
+            Экспорт всех
+          </button>
+        </div>
+      </div>
+
+      {/* Bulk actions bar */}
+      {selectedPayments.size > 0 && (
+        <Card style={{ padding: "1rem", background: "var(--muted)", border: "1px solid var(--card-border)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--foreground)" }}>
+                Выбрано: {selectedPayments.size} {selectedPayments.size === 1 ? "оплата" : selectedPayments.size < 5 ? "оплаты" : "оплат"}
+              </span>
+            </div>
+            <button
+              onClick={() => setBulkDeleteModalOpen(true)}
+              style={{
+                padding: "0.625rem 1rem",
+                borderRadius: "8px",
+                border: "1px solid #EF4444",
+                background: "var(--background)",
+                color: "#EF4444",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--background)";
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+              Удалить
+            </button>
+          </div>
+        </Card>
+      )}
+
+      {/* Search and filters */}
+      <Card style={{ padding: "1rem" }}>
         <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", gap: "1rem", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ position: "relative", flex: 1, maxWidth: "400px", minWidth: "250px" }}>
             <Search className="h-4 w-4" style={{ position: "absolute", left: "0.75rem", top: "50%", transform: "translateY(-50%)", color: "var(--muted-foreground)" }} />
@@ -434,11 +597,11 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по клиенту, услуге..."
+              placeholder="Search..."
               style={{
                 width: "100%",
                 padding: "0.625rem 0.75rem 0.625rem 2.5rem",
-                borderRadius: "10px",
+                borderRadius: "8px",
                 border: "1px solid var(--card-border)",
                 background: "var(--background)",
                 fontSize: "0.875rem",
@@ -457,19 +620,56 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
             />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-            <DateRangePicker value={dateRange} onChange={setDateRange} />
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.75rem", borderRadius: "8px", background: "var(--muted)", border: "1px solid var(--card-border)" }}>
-              <Filter className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
-              <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Услуга
+            <button
+              style={{
+                position: "relative",
+                padding: "0.625rem",
+                borderRadius: "8px",
+                border: "1px solid var(--card-border)",
+                background: "var(--background)",
+                color: "var(--foreground)",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--muted)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--background)";
+              }}
+            >
+              <Filter className="h-4 w-4" />
+              {serviceFilter !== "all" && (
+                <span style={{
+                  position: "absolute",
+                  top: "-0.25rem",
+                  right: "-0.25rem",
+                  width: "1rem",
+                  height: "1rem",
+                  borderRadius: "50%",
+                  background: "#EF4444",
+                  border: "2px solid var(--background)",
+                  fontSize: "0.625rem",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#fff",
+                  fontWeight: 600,
+                }}>
+                  1
               </span>
-            </div>
+              )}
+            </button>
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
             <select
               value={serviceFilter}
               onChange={(e) => setServiceFilter(e.target.value)}
               style={{
                 padding: "0.625rem 2.5rem 0.625rem 0.875rem",
-                borderRadius: "10px",
+                borderRadius: "8px",
                 border: "1px solid var(--card-border)",
                 background: "var(--background)",
                 fontSize: "0.875rem",
@@ -481,7 +681,7 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                 backgroundRepeat: "no-repeat",
                 backgroundPosition: "right 0.75rem center",
                 transition: "all 0.2s ease",
-                minWidth: "220px",
+                minWidth: "180px",
               }}
               onFocus={(e) => {
                 e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
@@ -515,34 +715,123 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
       ) : (
         <Card style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
               <thead>
-                <tr style={{ borderBottom: "1px solid var(--card-border)", background: "var(--muted)" }}>
-                  <th style={{ padding: "1rem", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    КЛИЕНТ
+                <tr style={{ background: "var(--muted)" }}>
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    color: "var(--muted-foreground)", 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em",
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedPayments.size > 0 && selectedPayments.size === filteredPayments.length}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      style={{
+                        width: "1rem",
+                        height: "1rem",
+                        cursor: "pointer",
+                      }}
+                    />
                   </th>
-                  <th style={{ padding: "1rem", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    ЧТО ОПЛАЧЕНО
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    color: "var(--muted-foreground)", 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em",
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
+                    ИМЯ
                   </th>
-                  <th style={{ padding: "1rem", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    color: "var(--muted-foreground)", 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em",
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
+                    КОНТАКТЫ
+                  </th>
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    color: "var(--muted-foreground)", 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em",
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
+                    УСЛУГА
+                  </th>
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    color: "var(--muted-foreground)", 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em",
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
                     СУММА
                   </th>
-                  <th style={{ padding: "1rem", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    СПОСОБ ОПЛАТЫ
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    color: "var(--muted-foreground)", 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em",
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
+                    МЕТОД ОПЛАТЫ
                   </th>
-                  <th style={{ padding: "1rem", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    color: "var(--muted-foreground)", 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em",
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
                     СТАТУС
                   </th>
-                  <th style={{ padding: "1rem", textAlign: "left", fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    ВРЕМЯ
-                  </th>
-                  <th style={{ padding: "1rem", textAlign: "center", fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", width: "80px" }}>
-                    ДЕЙСТВИЯ
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    color: "var(--muted-foreground)", 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em",
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
+                    ДАТА
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {filteredPayments.map((payment, index) => (
+                {filteredPayments.map((payment, index) => {
+                  const avatarColor = getAvatarColor(payment.clientName);
+                  const initials = getInitials(payment.clientName);
+                  const progress = payment.status === "completed" ? 100 : payment.status === "pending" ? 50 : 0;
+                  
+                  return (
                   <tr
                     key={payment.id}
                     style={{
@@ -558,7 +847,40 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                     }}
                     onClick={() => handlePaymentClick(payment)}
                   >
-                    <td style={{ padding: "1rem", fontSize: "0.875rem", color: "var(--foreground)" }}>
+                      <td style={{ padding: "1rem" }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedPayments.has(payment.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleSelectPayment(payment.id, e.target.checked);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            width: "1rem",
+                            height: "1rem",
+                            cursor: "pointer",
+                          }}
+                        />
+                      </td>
+                      <td style={{ padding: "1rem" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                          <div style={{
+                            width: "2.5rem",
+                            height: "2.5rem",
+                            borderRadius: "50%",
+                            background: avatarColor,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#fff",
+                            fontSize: "0.875rem",
+                            fontWeight: 600,
+                            flexShrink: 0,
+                          }}>
+                            {initials}
+                          </div>
+                          <div>
                       {payment.clientId ? (
                         <button
                           onClick={(e) => handleClientClick(e, payment)}
@@ -569,100 +891,79 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                             background: "none",
                             border: "none",
                             padding: 0,
-                            fontSize: "inherit",
-                            fontWeight: 500,
+                                  fontSize: "0.875rem",
+                                  fontWeight: 600,
                             transition: "color 0.2s ease",
+                                  textAlign: "left",
                           }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.color = "rgba(99, 102, 241, 1)";
-                            e.currentTarget.style.textDecoration = "underline";
                           }}
                           onMouseLeave={(e) => {
                             e.currentTarget.style.color = "var(--foreground)";
-                            e.currentTarget.style.textDecoration = "none";
                           }}
                         >
                           {payment.clientName}
                         </button>
                       ) : (
-                        payment.clientName
+                              <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--foreground)" }}>
+                                {payment.clientName}
+                              </span>
                       )}
+                          </div>
+                        </div>
                     </td>
-                    <td style={{ padding: "1rem", fontSize: "0.875rem", color: "var(--foreground)", fontWeight: 500 }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-                        {/* Категория услуги */}
-                        {payment.serviceCategory && (
-                          <span style={{ 
-                            fontSize: "0.75rem", 
-                            fontWeight: 600,
-                            color: "var(--muted-foreground)",
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
-                          }}>
-                            {payment.serviceCategory}
+                      <td style={{ padding: "1rem" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                          <span style={{ fontSize: "0.875rem", color: "var(--foreground)" }}>
+                            {payment.clientPhone}
                           </span>
-                        )}
-                        {/* Название услуги (без категории и часов в скобках) */}
-                        <span style={{ 
-                          fontWeight: 600,
-                          color: "var(--foreground)",
-                        }}>
+                        </div>
+                      </td>
+                      <td style={{ padding: "1rem" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                          <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--foreground)" }}>
                           {(() => {
                             let name = payment.serviceName || "Услуга";
-                            // Убираем категорию и часы из названия, если они есть в скобках
                             if (payment.serviceCategory && name.includes(`(${payment.hours}`)) {
                               name = name.replace(/\s*\([^)]*\)\s*$/, "").trim();
                             }
                             return name;
                           })()}
                         </span>
-                        {/* Детали: часы или количество */}
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.125rem" }}>
-                          {payment.hours !== null && payment.hours !== undefined && payment.hours > 0 && (
-                            <span style={{ 
-                              fontSize: "0.8125rem", 
-                              color: "var(--muted-foreground)",
-                              fontWeight: 500,
-                            }}>
-                              {payment.hours} {payment.hours === 1 ? 'час' : payment.hours < 5 ? 'часа' : 'часов'}
+                          {payment.serviceCategory && (
+                            <span style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>
+                              {payment.serviceCategory}
                             </span>
                           )}
-                          {payment.hours === null && payment.quantity > 1 && (
-                            <span style={{ 
-                              fontSize: "0.8125rem", 
-                              color: "var(--muted-foreground)",
-                              fontWeight: 500,
-                            }}>
-                              {payment.quantity} шт.
-                            </span>
-                          )}
-                        </div>
                       </div>
                     </td>
-                    <td style={{ padding: "1rem", fontSize: "0.875rem", color: "var(--foreground)", fontWeight: 600 }}>
+                      <td style={{ padding: "1rem" }}>
+                        <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--foreground)" }}>
                       {formatPrice(payment.amount)} сум
+                        </span>
                     </td>
-                    <td style={{ padding: "1rem", fontSize: "0.875rem", color: "var(--foreground)" }}>
+                      <td style={{ padding: "1rem" }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                         {payment.paymentMethods.cash > 0 && (
                           <span style={{ fontSize: "0.8125rem", color: "var(--muted-foreground)" }}>
-                            Наличные: {formatPrice(payment.paymentMethods.cash)} сум
+                              Наличные
                           </span>
                         )}
                         {payment.paymentMethods.transfer > 0 && (
                           <span style={{ fontSize: "0.8125rem", color: "var(--muted-foreground)" }}>
-                            Перевод: {formatPrice(payment.paymentMethods.transfer)} сум
+                              Перевод
                           </span>
                         )}
                       </div>
                     </td>
                     <td style={{ padding: "1rem" }}>
                       <span style={{
-                        padding: "0.375rem 0.625rem",
-                        borderRadius: "6px",
+                          padding: "0.375rem 0.75rem",
+                          borderRadius: "9999px",
                         fontSize: "0.8125rem",
                         fontWeight: 500,
-                        background: getStatusColor(payment.status) + "20",
+                          background: getStatusColor(payment.status) + "15",
                         color: getStatusColor(payment.status),
                         display: "inline-block",
                       }}>
@@ -672,41 +973,207 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                     <td style={{ padding: "1rem", fontSize: "0.875rem", color: "var(--muted-foreground)" }}>
                       {formatDate(payment.date)}
                     </td>
-                    <td style={{ padding: "1rem", textAlign: "center" }}>
-                      <button
-                        onClick={(e) => handleDeleteClick(e, payment)}
-                        style={{
-                          padding: "0.5rem",
-                          borderRadius: "8px",
-                          border: "1px solid var(--card-border)",
-                          background: "var(--background)",
-                          color: "#EF4444",
-                          cursor: "pointer",
-                          transition: "all 0.2s ease",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
-                          e.currentTarget.style.borderColor = "#EF4444";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "var(--background)";
-                          e.currentTarget.style.borderColor = "var(--card-border)";
-                        }}
-                        title="Удалить платеж"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
+          {/* Pagination */}
+          {filteredPayments.length > 0 && (
+            <div style={{
+              padding: "1rem 1.5rem",
+              borderTop: "1px solid var(--card-border)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              background: "var(--muted)",
+            }}>
+                      <button
+                        style={{
+                  padding: "0.5rem 1rem",
+                          borderRadius: "8px",
+                          border: "1px solid var(--card-border)",
+                          background: "var(--background)",
+                  color: "var(--foreground)",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--muted)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "var(--background)";
+                        }}
+                      >
+                Previous
+                      </button>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <button
+                  style={{
+                    padding: "0.5rem 0.75rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--foreground)",
+                    color: "var(--background)",
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  1
+                </button>
+                <button
+                  style={{
+                    padding: "0.5rem 0.75rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                    fontSize: "0.875rem",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--muted)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--background)";
+                  }}
+                >
+                  2
+                </button>
+                <span style={{ color: "var(--muted-foreground)", fontSize: "0.875rem" }}>...</span>
+                <button
+                  style={{
+                    padding: "0.5rem 0.75rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                    fontSize: "0.875rem",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--muted)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--background)";
+                  }}
+                >
+                  8
+                </button>
+                <button
+                  style={{
+                    padding: "0.5rem 0.75rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--background)",
+                    color: "var(--foreground)",
+                    fontSize: "0.875rem",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--muted)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--background)";
+                  }}
+                >
+                  9
+                </button>
+          </div>
+              <button
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  fontSize: "0.875rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--muted)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "var(--background)";
+                }}
+              >
+                Next &gt;
+              </button>
+            </div>
+          )}
         </Card>
       )}
+
+      {/* Модальное окно массового удаления */}
+      <Modal
+        open={bulkDeleteModalOpen}
+        onClose={() => {
+          if (!bulkDeleting) {
+            setBulkDeleteModalOpen(false);
+          }
+        }}
+        title="Подтверждение удаления"
+      >
+        <div style={{ padding: "0", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <p style={{ color: "var(--foreground)", fontSize: "0.875rem" }}>
+            Вы уверены, что хотите удалить <strong>{selectedPayments.size}</strong> {selectedPayments.size === 1 ? "платеж" : selectedPayments.size < 5 ? "платежа" : "платежей"}?
+          </p>
+          <p style={{ color: "var(--muted-foreground)", fontSize: "0.8125rem" }}>
+            Это действие нельзя отменить.
+          </p>
+          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+            <button
+              onClick={() => {
+                setBulkDeleteModalOpen(false);
+              }}
+              disabled={bulkDeleting}
+              style={{
+                padding: "0.625rem 1.25rem",
+                borderRadius: "8px",
+                border: "1px solid var(--card-border)",
+                background: "var(--background)",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: bulkDeleting ? "not-allowed" : "pointer",
+                opacity: bulkDeleting ? 0.5 : 1,
+                transition: "all 0.2s ease",
+              }}
+            >
+              Отмена
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              style={{
+                padding: "0.625rem 1.25rem",
+                borderRadius: "8px",
+                border: "1.5px solid transparent",
+                background: bulkDeleting ? "rgba(239, 68, 68, 0.5)" : "#EF4444",
+                color: "#FFFFFF",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: bulkDeleting ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+              }}
+            >
+              {bulkDeleting ? "Удаление..." : "Удалить"}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Модальное окно подтверждения удаления */}
       <Modal
@@ -781,26 +1248,34 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
         title="Детали оплаты"
       >
         {selectedPayment && (
-          <div style={{ padding: "0", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-            {/* Заголовок с номером заказа */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+            {/* Header with order ID and status */}
             <div style={{
-              padding: "1.25rem 1.5rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              paddingBottom: "1rem",
               borderBottom: "1px solid var(--card-border)",
-              background: "linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)",
             }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>
+                <div style={{ 
+                  fontSize: "0.75rem", 
+                  fontWeight: 500, 
+                  color: "var(--muted-foreground)", 
+                  textTransform: "uppercase", 
+                  letterSpacing: "0.05em", 
+                  marginBottom: "0.5rem" 
+                }}>
                     Номер заказа
                   </div>
-                  <div style={{ fontSize: "1.125rem", fontWeight: 700, color: "var(--foreground)" }}>
+                <div style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--foreground)" }}>
                     {selectedPayment.orderId}
                   </div>
                 </div>
                 <div style={{
                   padding: "0.5rem 0.875rem",
                   borderRadius: "8px",
-                  background: getStatusColor(selectedPayment.status) + "20",
+                background: getStatusColor(selectedPayment.status) + "15",
                   border: `1px solid ${getStatusColor(selectedPayment.status)}40`,
                 }}>
                   <span style={{
@@ -810,36 +1285,43 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                   }}>
                     {getStatusLabel(selectedPayment.status)}
                   </span>
-                </div>
               </div>
             </div>
 
-            {/* Основная информация */}
-            <div style={{ padding: "0 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+            {/* Main content */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
               {/* Услуга */}
               <div style={{
-                padding: "1rem 1.25rem",
+                padding: "1rem",
                 borderRadius: "12px",
-                background: "var(--muted)",
                 border: "1px solid var(--card-border)",
+                background: "var(--muted)",
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
                   <div style={{
-                    width: "40px",
-                    height: "40px",
+                  fontSize: "0.75rem", 
+                  fontWeight: 500, 
+                  color: "var(--muted-foreground)", 
+                  textTransform: "uppercase", 
+                  letterSpacing: "0.05em", 
+                  marginBottom: "0.75rem" 
+                }}>
+                  Услуга
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <div style={{
+                    width: "2.5rem",
+                    height: "2.5rem",
                     borderRadius: "10px",
                     background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    flexShrink: 0,
                   }}>
                     <CreditCard className="h-5 w-5" style={{ color: "#fff" }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>
-                      Услуга
-                    </div>
-                    <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--foreground)", marginBottom: "0.25rem" }}>
+                    <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)", marginBottom: "0.25rem" }}>
                       {selectedPayment.serviceName}
                     </div>
                     {selectedPayment.serviceCategory && (
@@ -861,29 +1343,40 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                 </div>
               </div>
 
-              {/* Клиент и контакты */}
+              {/* Клиент */}
               <div style={{
-                padding: "1rem 1.25rem",
+                padding: "1rem",
                 borderRadius: "12px",
-                background: "var(--muted)",
                 border: "1px solid var(--card-border)",
+                background: "var(--muted)",
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
                   <div style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "10px",
-                    background: "linear-gradient(135deg, #10B981 0%, #059669 100%)",
+                  fontSize: "0.75rem", 
+                  fontWeight: 500, 
+                  color: "var(--muted-foreground)", 
+                  textTransform: "uppercase", 
+                  letterSpacing: "0.05em", 
+                  marginBottom: "0.75rem" 
+                }}>
+                  Клиент
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                  <div style={{
+                    width: "2.5rem",
+                    height: "2.5rem",
+                    borderRadius: "50%",
+                    background: getAvatarColor(selectedPayment.clientName),
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
+                    color: "#fff",
+                    fontSize: "0.875rem",
+                    fontWeight: 600,
+                    flexShrink: 0,
                   }}>
-                    <User className="h-5 w-5" style={{ color: "#fff" }} />
+                    {getInitials(selectedPayment.clientName)}
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>
-                      Клиент
-                    </div>
                     {selectedPayment.clientId ? (
                       <button
                         onClick={() => {
@@ -891,7 +1384,7 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                           router.push(`/body/clients/${selectedPayment.clientId}`);
                         }}
                         style={{
-                          fontSize: "1rem",
+                          fontSize: "0.9375rem",
                           fontWeight: 600,
                           color: "var(--foreground)",
                           background: "none",
@@ -900,45 +1393,51 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                           cursor: "pointer",
                           textAlign: "left",
                           transition: "color 0.2s ease",
+                          marginBottom: "0.25rem",
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.color = "rgba(99, 102, 241, 1)";
-                          e.currentTarget.style.textDecoration = "underline";
                         }}
                         onMouseLeave={(e) => {
                           e.currentTarget.style.color = "var(--foreground)";
-                          e.currentTarget.style.textDecoration = "none";
                         }}
                       >
                         {selectedPayment.clientName}
                       </button>
                     ) : (
-                      <div style={{ fontSize: "1rem", fontWeight: 600, color: "var(--foreground)" }}>
+                      <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)", marginBottom: "0.25rem" }}>
                         {selectedPayment.clientName}
                       </div>
                     )}
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", paddingTop: "0.75rem", borderTop: "1px solid var(--card-border)" }}>
-                  <Phone className="h-4 w-4" style={{ color: "var(--muted-foreground)" }} />
-                  <span style={{ fontSize: "0.875rem", color: "var(--foreground)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <Phone className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                      <span style={{ fontSize: "0.8125rem", color: "var(--muted-foreground)" }}>
                     {selectedPayment.clientPhone}
                   </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               {/* Методы оплаты */}
               {(selectedPayment.paymentMethods.cash > 0 || selectedPayment.paymentMethods.transfer > 0) && (
                 <div style={{
-                  padding: "1rem 1.25rem",
+                  padding: "1rem",
                   borderRadius: "12px",
-                  background: "var(--muted)",
                   border: "1px solid var(--card-border)",
+                  background: "var(--muted)",
                 }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>
+                  <div style={{ 
+                    fontSize: "0.75rem", 
+                    fontWeight: 500, 
+                    color: "var(--muted-foreground)", 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em", 
+                    marginBottom: "0.75rem" 
+                  }}>
                     Методы оплаты
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                     {selectedPayment.paymentMethods.cash > 0 && (
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <span style={{ fontSize: "0.875rem", color: "var(--muted-foreground)" }}>Наличные</span>
@@ -963,8 +1462,8 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
               <div style={{
                 padding: "1.25rem 1.5rem",
                 borderRadius: "12px",
-                background: "linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)",
-                border: "1.5px solid rgba(99, 102, 241, 0.2)",
+                border: "1px solid var(--card-border)",
+                background: "var(--background)",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
@@ -978,9 +1477,9 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
               {/* Дата и время */}
               <div style={{
                 padding: "0.875rem 1rem",
-                borderRadius: "10px",
-                background: "var(--muted)",
+                borderRadius: "12px",
                 border: "1px solid var(--card-border)",
+                background: "var(--muted)",
                 display: "flex",
                 alignItems: "center",
                 gap: "0.625rem",
@@ -994,12 +1493,19 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
               {/* Комментарий */}
               {selectedPayment.comment && (
                 <div style={{
-                  padding: "1rem 1.25rem",
+                  padding: "1rem",
                   borderRadius: "12px",
-                  background: "var(--muted)",
                   border: "1px solid var(--card-border)",
+                  background: "var(--muted)",
                 }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
+                  <div style={{ 
+                    fontSize: "0.75rem", 
+                    fontWeight: 500, 
+                    color: "var(--muted-foreground)", 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em", 
+                    marginBottom: "0.5rem" 
+                  }}>
                     Комментарий
                   </div>
                   <div style={{ fontSize: "0.875rem", color: "var(--foreground)", lineHeight: "1.5" }}>
@@ -1009,15 +1515,11 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
               )}
             </div>
 
-            {/* Быстрые действия */}
+            {/* Actions */}
             <div style={{
-              padding: "1.5rem",
+              paddingTop: "1.5rem",
               borderTop: "1px solid var(--card-border)",
-              background: "var(--muted)",
             }}>
-              <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "1rem" }}>
-                Быстрые действия
-              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "0.75rem", marginBottom: "0.75rem" }}>
                 <button
                   onClick={handleDownloadReceipt}
@@ -1025,11 +1527,11 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "0.625rem",
-                    padding: "0.875rem 1rem",
-                    borderRadius: "10px",
-                    border: "1.5px solid var(--card-border)",
-                    background: "var(--background)",
+                    gap: "0.5rem",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "transparent",
                     color: "var(--foreground)",
                     fontSize: "0.875rem",
                     fontWeight: 500,
@@ -1038,13 +1540,9 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "var(--muted)";
-                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.4)";
-                    e.currentTarget.style.transform = "translateY(-1px)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "var(--background)";
-                    e.currentTarget.style.borderColor = "var(--card-border)";
-                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.background = "transparent";
                   }}
                 >
                   <Download className="h-4 w-4" />
@@ -1056,11 +1554,11 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "0.625rem",
-                    padding: "0.875rem 1rem",
-                    borderRadius: "10px",
-                    border: "1.5px solid var(--card-border)",
-                    background: "var(--background)",
+                    gap: "0.5rem",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "transparent",
                     color: "var(--foreground)",
                     fontSize: "0.875rem",
                     fontWeight: 500,
@@ -1069,13 +1567,9 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "var(--muted)";
-                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.4)";
-                    e.currentTarget.style.transform = "translateY(-1px)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "var(--background)";
-                    e.currentTarget.style.borderColor = "var(--card-border)";
-                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.background = "transparent";
                   }}
                 >
                   <Printer className="h-4 w-4" />
@@ -1087,11 +1581,11 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "0.625rem",
-                    padding: "0.875rem 1rem",
-                    borderRadius: "10px",
-                    border: "1.5px solid var(--card-border)",
-                    background: "var(--background)",
+                    gap: "0.5rem",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "transparent",
                     color: "var(--foreground)",
                     fontSize: "0.875rem",
                     fontWeight: 500,
@@ -1100,13 +1594,9 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "var(--muted)";
-                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.4)";
-                    e.currentTarget.style.transform = "translateY(-1px)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "var(--background)";
-                    e.currentTarget.style.borderColor = "var(--card-border)";
-                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.background = "transparent";
                   }}
                 >
                   <Share2 className="h-4 w-4" />
@@ -1118,11 +1608,11 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "0.625rem",
-                    padding: "0.875rem 1rem",
-                    borderRadius: "10px",
-                    border: "1.5px solid var(--card-border)",
-                    background: "var(--background)",
+                    gap: "0.5rem",
+                    padding: "0.75rem 1rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "transparent",
                     color: "var(--foreground)",
                     fontSize: "0.875rem",
                     fontWeight: 500,
@@ -1131,13 +1621,9 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "var(--muted)";
-                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.4)";
-                    e.currentTarget.style.transform = "translateY(-1px)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "var(--background)";
-                    e.currentTarget.style.borderColor = "var(--card-border)";
-                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.background = "transparent";
                   }}
                 >
                   <Copy className="h-4 w-4" />
@@ -1154,11 +1640,11 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: "0.625rem",
-                  padding: "0.875rem 1rem",
-                  borderRadius: "10px",
-                  border: "1.5px solid #EF4444",
-                  background: "var(--background)",
+                  gap: "0.5rem",
+                  padding: "0.75rem 1rem",
+                  borderRadius: "8px",
+                  border: "1px solid #EF4444",
+                  background: "transparent",
                   color: "#EF4444",
                   fontSize: "0.875rem",
                   fontWeight: 600,
@@ -1170,7 +1656,7 @@ ${selectedPayment.comment ? `\nКомментарий: ${selectedPayment.comment
                   e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "var(--background)";
+                  e.currentTarget.style.background = "transparent";
                 }}
               >
                 <Trash2 className="h-4 w-4" />

@@ -6,21 +6,26 @@ type Theme = "light" | "dark";
 
 type ThemeCtx = {
   theme: Theme;
+  snowEnabled: boolean;
   toggle: () => void;
+  enableSnow: () => void;
 };
 
 const Ctx = createContext<ThemeCtx | null>(null);
 
 export default function ThemeProvider({ children }: PropsWithChildren) {
   const [theme, setTheme] = useState<Theme>("light");
+  const [snowEnabled, setSnowEnabled] = useState(false);
 
   useEffect(() => {
     const stored = typeof window !== "undefined" ? (localStorage.getItem("theme") as Theme | null) : null;
+    const storedSnow = typeof window !== "undefined" ? localStorage.getItem("snowEnabled") === "true" : false;
     if (stored === "light" || stored === "dark") {
       setTheme(stored);
     } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
       setTheme("dark");
     }
+    setSnowEnabled(storedSnow);
   }, []);
 
   useEffect(() => {
@@ -35,7 +40,30 @@ export default function ThemeProvider({ children }: PropsWithChildren) {
     return () => window.clearTimeout(t);
   }, [theme]);
 
-  const value = useMemo<ThemeCtx>(() => ({ theme, toggle: () => setTheme((t) => (t === "light" ? "dark" : "light")) }), [theme]);
+  useEffect(() => {
+    localStorage.setItem("snowEnabled", snowEnabled.toString());
+  }, [snowEnabled]);
+
+  const enableSnow = () => {
+    setTheme("dark");
+    setSnowEnabled(true);
+  };
+
+  const value = useMemo<ThemeCtx>(
+    () => ({
+      theme,
+      snowEnabled,
+      toggle: () => {
+        const newTheme = theme === "light" ? "dark" : "light";
+        setTheme(newTheme);
+        if (newTheme === "light") {
+          setSnowEnabled(false);
+        }
+      },
+      enableSnow,
+    }),
+    [theme, snowEnabled]
+  );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

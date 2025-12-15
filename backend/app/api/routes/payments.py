@@ -34,6 +34,9 @@ async def create_payment(
     session: AsyncSession = Depends(get_session),
 ) -> Payment:
     try:
+        # Убеждаемся, что quantity >= 1 при создании
+        if payload.quantity < 1:
+            payload.quantity = 1
         repo = PaymentRepository(session)
         return await repo.create_payment(payload)
     except Exception as e:

@@ -64,6 +64,21 @@ export default function StaffListPage() {
     });
   }, [employees, search, roleFilter]);
 
+  // Статистика
+  const stats = useMemo(() => {
+    const total = employees.length;
+    const active = employees.filter((e) => e.is_active).length;
+    const admins = employees.filter((e) => e.role === "admin" || e.role === "super_admin").length;
+    const managers = employees.filter((e) => e.role === "manager").length;
+    
+    return {
+      total,
+      active,
+      admins,
+      managers,
+    };
+  }, [employees]);
+
   const toggleAccess = (key: AccessKey) => {
     setFormAccess((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
@@ -233,58 +248,176 @@ export default function StaffListPage() {
   };
 
   return (
-    <div className="space-y-4">
-      <Card className="p-5" style={{ background: "var(--background)" }}>
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-3">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500 pointer-events-none" />
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Всего сотрудников
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.total}</p>
+          </div>
+        </Card>
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Активные
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.active}</p>
+          </div>
+        </Card>
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Администраторы
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.admins}</p>
+          </div>
+        </Card>
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Менеджеры
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.managers}</p>
+          </div>
+        </Card>
+      </div>
+
+      {/* Search and Filters */}
+      <Card style={{ padding: "1.25rem" }}>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div style={{ position: "relative", width: "100%", maxWidth: "400px" }}>
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: "var(--muted-foreground)" }} />
             <input
               placeholder="Поиск по имени, email, роли..."
-              className="h-12 w-full pl-10 pr-3 text-sm rounded-2xl"
-              style={{ background: "var(--muted)", border: "1px solid var(--card-border)", color: "var(--foreground)" }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.625rem 0.875rem 0.625rem 2.5rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--background)",
+                  fontSize: "0.875rem",
+                  color: "var(--foreground)",
+                  outline: "none",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
             />
           </div>
-          <select
-            className="h-12 px-4 rounded-2xl text-sm"
-            style={{ background: "var(--muted)", border: "1px solid var(--card-border)", color: "var(--foreground)" }}
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value as any)}
-          >
-            <option value="all">Все</option>
-            <option value="super_admin">Супер Админ</option>
-            <option value="admin">Админ</option>
-            <option value="manager">Менеджер</option>
-          </select>
           <button
             type="button"
-            className="payments-add-btn"
             onClick={openCreate}
+              style={{
+                padding: "0.625rem 1rem",
+                borderRadius: "8px",
+                border: "1px solid transparent",
+                background: "var(--foreground)",
+                color: "var(--background)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                whiteSpace: "nowrap",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.15)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
           >
             <Plus className="h-4 w-4" />
             Добавить сотрудника
           </button>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
+              Роль
+            </span>
+            <div className="flex gap-2 flex-wrap">
+              {[
+                { value: "all", label: "Все" },
+                { value: "super_admin", label: "Супер Админ" },
+                { value: "admin", label: "Админ" },
+                { value: "manager", label: "Менеджер" },
+              ].map((role) => (
+                <button
+                  key={role.value}
+                  type="button"
+                  onClick={() => setRoleFilter(role.value as any)}
+                  style={{
+                    padding: "0.5rem 0.875rem",
+                    borderRadius: "999px",
+                    border: `1px solid ${roleFilter === role.value ? "transparent" : "var(--card-border)"}`,
+                    background: roleFilter === role.value ? "var(--foreground)" : "transparent",
+                    color: roleFilter === role.value ? "var(--background)" : "var(--foreground)",
+                    fontSize: "0.75rem",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (roleFilter !== role.value) {
+                      e.currentTarget.style.borderColor = "var(--foreground)";
+                      e.currentTarget.style.opacity = "0.7";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (roleFilter !== role.value) {
+                      e.currentTarget.style.borderColor = "var(--card-border)";
+                      e.currentTarget.style.opacity = "1";
+                    }
+                  }}
+                >
+                  {role.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </Card>
 
-      <Card className="p-0" style={{ background: "var(--background)" }}>
+      <Card style={{ padding: 0, overflow: "hidden" }}>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm" style={{ borderCollapse: "separate", borderSpacing: 0 }}>
-            <thead className="text-left" style={{ borderBottom: "1px solid var(--card-border)" }}>
+            <thead className="text-left" style={{ borderBottom: "1px solid var(--card-border)", background: "var(--muted)" }}>
               <tr>
-                <th className="py-4 px-4" style={{ color: "var(--foreground)" }}>Имя</th>
-                <th className="py-4 px-4" style={{ color: "var(--foreground)" }}>Email</th>
-                <th className="py-4 px-4" style={{ color: "var(--foreground)" }}>Роль</th>
-                <th className="py-4 px-4" style={{ color: "var(--foreground)" }}>Разрешения</th>
-                <th className="py-4 px-4" style={{ color: "var(--foreground)" }}>Статус</th>
-                <th className="py-4 px-4" style={{ color: "var(--foreground)" }}>Действия</th>
+                <th className="py-4 px-4" style={{ color: "var(--foreground)", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Имя</th>
+                <th className="py-4 px-4" style={{ color: "var(--foreground)", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Email</th>
+                <th className="py-4 px-4" style={{ color: "var(--foreground)", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Роль</th>
+                <th className="py-4 px-4" style={{ color: "var(--foreground)", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Разрешения</th>
+                <th className="py-4 px-4" style={{ color: "var(--foreground)", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Статус</th>
+                <th className="py-4 px-4" style={{ color: "var(--foreground)", fontSize: "0.75rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Действия</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={6} className="py-6 text-center text-sm text-zinc-500">Загрузка...</td>
+                  <td colSpan={6} className="py-8 text-center text-sm" style={{ color: "var(--muted-foreground)" }}>Загрузка...</td>
+                </tr>
+              )}
+              {!loading && filtered.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-sm" style={{ color: "var(--muted-foreground)" }}>
+                    {search || roleFilter !== "all" ? "Сотрудники не найдены" : "Нет сотрудников"}
+                  </td>
                 </tr>
               )}
               {!loading && filtered.map((employee) => {
@@ -310,18 +443,30 @@ export default function StaffListPage() {
                       : "#0EA5E9";
                 const permissionsLabel = `${employee.access.length} страниц`;
                 return (
-                  <tr key={employee.id} style={{ borderTop: "1px solid var(--card-border)" }} className="hover:bg-black/[.02] dark:hover:bg-white/[.03] transition-colors">
+                  <tr 
+                    key={employee.id} 
+                    style={{ 
+                      borderTop: "1px solid var(--card-border)",
+                      transition: "background 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "var(--muted)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                    }}
+                  >
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full flex items-center justify-center text-sm font-semibold shrink-0" style={{ background: roleColor + "20", color: roleColor }}>
+                        <div className="h-10 w-10 rounded-full flex items-center justify-center text-sm font-semibold shrink-0" style={{ background: roleColor + "20", color: roleColor }}>
                           {initials}
                         </div>
-                        <span className="font-medium" style={{ color: "var(--foreground)" }}>{employee.name || employee.email}</span>
+                        <span className="font-medium" style={{ color: "var(--foreground)", fontSize: "0.875rem" }}>{employee.name || employee.email}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-4" style={{ color: "var(--foreground)" }}>
-                      <span className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-zinc-500" />
+                    <td className="py-4 px-4">
+                      <span className="flex items-center gap-2" style={{ color: "var(--foreground)", fontSize: "0.875rem" }}>
+                        <Mail className="h-4 w-4" style={{ color: "var(--muted-foreground)" }} />
                         {employee.email}
                       </span>
                     </td>
@@ -330,25 +475,37 @@ export default function StaffListPage() {
                         {roleLabel}
                       </span>
                     </td>
-                    <td className="py-4 px-4" style={{ color: "var(--foreground)" }}>{permissionsLabel}</td>
+                    <td className="py-4 px-4" style={{ color: "var(--foreground)", fontSize: "0.875rem" }}>{permissionsLabel}</td>
                     <td className="py-4 px-4">
-                      <span className="text-sm font-medium" style={{ color: "#10B981", display: "flex", alignItems: "center", gap: 6 }}>
-                        <span className="h-2.5 w-2.5 rounded-full inline-block" style={{ background: "#10B981" }} />
-                        Активен
+                      <span className="text-sm font-medium" style={{ color: employee.is_active ? "#10B981" : "var(--muted-foreground)", display: "flex", alignItems: "center", gap: 6 }}>
+                        <span className="h-2.5 w-2.5 rounded-full inline-block" style={{ background: employee.is_active ? "#10B981" : "var(--muted-foreground)" }} />
+                        {employee.is_active ? "Активен" : "Неактивен"}
                       </span>
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-2">
                         <button
-                          className="p-1.5 rounded-lg border transition-all hover:bg-black/[.02] dark:hover:bg-white/[.03]"
-                          style={{ borderColor: "var(--card-border)", color: "var(--foreground)" }}
+                          className="p-1.5 rounded-lg border transition-all"
+                          style={{ 
+                            borderColor: "var(--card-border)", 
+                            color: "var(--foreground)",
+                            background: "transparent",
+                          }}
                           onClick={() => openEdit(employee)}
                           title="Редактировать"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "var(--muted)";
+                            e.currentTarget.style.borderColor = "var(--foreground)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "transparent";
+                            e.currentTarget.style.borderColor = "var(--card-border)";
+                          }}
                         >
                           <Edit2 className="h-3.5 w-3.5" />
                         </button>
                         <button
-                          className="p-1.5 rounded-lg border transition-all staff-delete-btn"
+                          className="p-1.5 rounded-lg border transition-all"
                           style={{ 
                             borderColor: "rgba(239, 68, 68, 0.2)", 
                             color: "#ef4444",
@@ -356,6 +513,14 @@ export default function StaffListPage() {
                           }}
                           onClick={() => handleDeleteClick(employee.id, employee.name || employee.email)}
                           title="Удалить"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "rgba(239, 68, 68, 0.15)";
+                            e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.4)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "rgba(239, 68, 68, 0.08)";
+                            e.currentTarget.style.borderColor = "rgba(239, 68, 68, 0.2)";
+                          }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -370,86 +535,139 @@ export default function StaffListPage() {
       </Card>
 
       <Modal open={open} onClose={() => { setOpen(false); setEditing(null); }} title={editing ? "Редактировать сотрудника" : "Добавить сотрудника"}>
-        <div className="space-y-5">
-          <div className="space-y-4">
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   Имя *
                 </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
+                <div style={{ position: "relative" }}>
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
                   <input
-                    className="h-11 w-full rounded-xl border pl-10 pr-4 text-sm transition-all focus:outline-none focus:ring-2"
                     style={{
-                      background: "var(--muted)",
-                      borderColor: "var(--card-border)",
+                      width: "100%",
+                      padding: "0.625rem 0.875rem 0.625rem 2.5rem",
+                      borderRadius: "8px",
+                      border: "1px solid var(--card-border)",
+                      background: "var(--background)",
+                      fontSize: "0.875rem",
                       color: "var(--foreground)",
+                      outline: "none",
+                      transition: "all 0.2s ease",
                     }}
                     placeholder="Иван Иванов"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "var(--card-border)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   Почта *
                 </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
+                <div style={{ position: "relative" }}>
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
                   <input
-                    className="h-11 w-full rounded-xl border pl-10 pr-4 text-sm transition-all focus:outline-none focus:ring-2"
                     style={{
-                      background: "var(--muted)",
-                      borderColor: "var(--card-border)",
+                      width: "100%",
+                      padding: "0.625rem 0.875rem 0.625rem 2.5rem",
+                      borderRadius: "8px",
+                      border: "1px solid var(--card-border)",
+                      background: "var(--background)",
+                      fontSize: "0.875rem",
                       color: "var(--foreground)",
+                      outline: "none",
+                      transition: "all 0.2s ease",
                     }}
                     placeholder="user@mail.com"
                     type="email"
                     value={formEmail}
                     onChange={(e) => setFormEmail(e.target.value)}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "var(--card-border)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   Пароль {editing ? "" : "*"}
                 </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
+                <div style={{ position: "relative" }}>
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
                   <input
-                    className="h-11 w-full rounded-xl border pl-10 pr-4 text-sm transition-all focus:outline-none focus:ring-2"
                     style={{
-                      background: "var(--muted)",
-                      borderColor: "var(--card-border)",
+                      width: "100%",
+                      padding: "0.625rem 0.875rem 0.625rem 2.5rem",
+                      borderRadius: "8px",
+                      border: "1px solid var(--card-border)",
+                      background: "var(--background)",
+                      fontSize: "0.875rem",
                       color: "var(--foreground)",
+                      outline: "none",
+                      transition: "all 0.2s ease",
                     }}
                     placeholder={editing ? "Оставьте пустым, чтобы не менять" : "••••••••"}
                     type="password"
                     value={formPassword}
                     onChange={(e) => setFormPassword(e.target.value)}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "var(--card-border)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
                   />
                 </div>
                 {editing && (
-                  <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                  <p style={{ fontSize: "0.75rem", color: "var(--muted-foreground)", marginTop: "0.25rem" }}>
                     Оставьте пустым, чтобы не менять пароль
                   </p>
                 )}
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                   Роль *
                 </label>
                 <select
-                  className="h-11 w-full rounded-xl border px-4 text-sm transition-all focus:outline-none focus:ring-2"
                   style={{
-                    background: "var(--muted)",
-                    borderColor: "var(--card-border)",
+                    width: "100%",
+                    padding: "0.625rem 0.875rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--background)",
+                    fontSize: "0.875rem",
                     color: "var(--foreground)",
+                    outline: "none",
+                    transition: "all 0.2s ease",
+                    cursor: "pointer",
                   }}
                   value={formRole}
                   onChange={(e) => setFormRole(e.target.value as Employee["role"])}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
                 >
                   <option value="super_admin">Супер-админ</option>
                   <option value="admin">Админ</option>
@@ -458,44 +676,93 @@ export default function StaffListPage() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <div>
-                  <label className="text-xs font-medium" style={{ color: "var(--muted-foreground)" }}>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     Доступ к страницам
                   </label>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>Отметьте, что видно сотруднику</p>
+                  <p style={{ fontSize: "0.75rem", color: "var(--muted-foreground)", marginTop: "0.25rem" }}>
+                    Отметьте, что видно сотруднику
+                  </p>
                 </div>
                 <button
-                  className="text-xs font-medium transition-colors hover:opacity-80"
-                  style={{ color: "var(--foreground)" }}
+                  type="button"
+                  style={{
+                    padding: "0.375rem 0.75rem",
+                    borderRadius: "6px",
+                    border: "1px solid var(--card-border)",
+                    background: "transparent",
+                    color: "var(--foreground)",
+                    fontSize: "0.75rem",
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
                   onClick={() => setFormAccess(ACCESS_OPTIONS.map((o) => o.key))}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--muted)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
                 >
                   Выбрать все
                 </button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 p-3 rounded-xl" style={{ background: "var(--muted)", border: "1px solid var(--card-border)" }}>
+              <div 
+                className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2" 
+                style={{ 
+                  padding: "1rem",
+                  borderRadius: "12px",
+                  background: "var(--muted)",
+                  border: "1px solid var(--card-border)",
+                }}
+              >
                 {ACCESS_OPTIONS.map((opt) => {
                   const checked = formAccess.includes(opt.key);
                   return (
                     <label
                       key={opt.key}
-                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm cursor-pointer transition-all hover:bg-black/[.02] dark:hover:bg-white/[.03]"
                       style={{
-                        color: "var(--foreground)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem",
+                        padding: "0.625rem 0.875rem",
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        background: checked ? "var(--background)" : "transparent",
+                        border: checked ? "1px solid var(--card-border)" : "1px solid transparent",
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!checked) {
+                          e.currentTarget.style.background = "var(--background)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!checked) {
+                          e.currentTarget.style.background = "transparent";
+                        }
                       }}
                     >
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-2 transition-all"
                         style={{
+                          width: "1rem",
+                          height: "1rem",
+                          borderRadius: "4px",
+                          border: `2px solid ${checked ? "#6366F1" : "var(--card-border)"}`,
+                          background: checked ? "#6366F1" : "transparent",
+                          cursor: "pointer",
                           accentColor: "#6366F1",
-                          borderColor: checked ? "#6366F1" : "var(--card-border)",
                         }}
                         checked={checked}
                         onChange={() => toggleAccess(opt.key)}
                       />
+                      <span style={{ fontSize: "0.875rem", color: "var(--foreground)", fontWeight: checked ? 500 : 400 }}>
                       {opt.label}
+                      </span>
                     </label>
                   );
                 })}
@@ -503,31 +770,63 @@ export default function StaffListPage() {
             </div>
           </div>
 
-          <div className="flex gap-3 justify-end pt-2 border-t" style={{ borderColor: "var(--card-border)" }}>
+          <div style={{ display: "flex", gap: "0.75rem", paddingTop: "1.5rem", borderTop: "1px solid var(--card-border)", justifyContent: "flex-end" }}>
             <button
-              className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all"
+              type="button"
               style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
                 border: "1px solid var(--card-border)",
                 background: "transparent",
                 color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
               }}
               onClick={() => {
                 setOpen(false);
                 setEditing(null);
               }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--muted)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
             >
               Отмена
             </button>
             <button
-              className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-all disabled:opacity-50"
+              type="button"
               style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
+                border: "1px solid transparent",
                 background: saving
                   ? "#9ca3af"
-                  : "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
-                boxShadow: saving ? "none" : "0 4px 12px rgba(99, 102, 241, 0.25)",
+                  : "var(--foreground)",
+                color: saving
+                  ? "#ffffff"
+                  : "var(--background)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: saving || !formName.trim() || !formEmail.trim() || (!editing && !formPassword.trim()) ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                opacity: saving || !formName.trim() || !formEmail.trim() || (!editing && !formPassword.trim()) ? 0.5 : 1,
               }}
               onClick={handleSave}
               disabled={saving || !formName.trim() || !formEmail.trim() || (!editing && !formPassword.trim())}
+              onMouseEnter={(e) => {
+                if (!saving && formName.trim() && formEmail.trim() && (editing || formPassword.trim())) {
+                  e.currentTarget.style.opacity = "0.9";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!saving && formName.trim() && formEmail.trim() && (editing || formPassword.trim())) {
+                  e.currentTarget.style.opacity = "1";
+                }
+              }}
             >
               {saving ? "Сохраняю..." : "Сохранить"}
             </button>

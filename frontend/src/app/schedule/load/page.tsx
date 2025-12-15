@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
-import { Calendar as CalendarIcon, Calendar, ChevronLeft, ChevronRight, Clock, Search, Users, Activity, X, Phone, User, NotebookPen, Plus, Trash2, CreditCard, CheckCircle, Pencil } from "lucide-react";
+import { Calendar as CalendarIcon, Calendar, ChevronLeft, ChevronRight, Clock, Search, Users, Activity, X, Phone, User, NotebookPen, Plus, Trash2, CreditCard, CheckCircle, Pencil, TrendingUp, CheckCircle2, CalendarDays, Filter, ChevronDown } from "lucide-react";
 import FullCalendar from "@fullcalendar/react";
 import type { EventContentArg } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -208,7 +208,12 @@ export default function ScheduleLoadPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showOverviewDatePicker, setShowOverviewDatePicker] = useState(false);
+  const [dateFilterOperator, setDateFilterOperator] = useState<"is" | "is-before" | "is-after" | "is-on-or-before" | "is-on-or-after" | "is-in-between">("is");
+  const [showOperatorDropdown, setShowOperatorDropdown] = useState(false);
+  const [startDate, setStartDate] = useState<Date | null>(new Date());
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const datePickerRef = useRef<HTMLDivElement | null>(null);
+  const operatorDropdownRef = useRef<HTMLDivElement | null>(null);
   const overviewDatePickerRef = useRef<HTMLDivElement | null>(null);
   const calendarRef = useRef<FullCalendar | null>(null);
   // Все данные теперь загружаются из API, localStorage не используется
@@ -1725,17 +1730,106 @@ export default function ScheduleLoadPage() {
     );
   }, []);
 
+  // Статистика для KPI карточек
+  const stats = useMemo(() => {
+    const allEvents = Object.values(overviewSlotsState).filter(Boolean) as CalendarEvent[];
+    const total = allEvents.length;
+    const paid = allEvents.filter((e) => e.status === "paid").length;
+    const reserved = allEvents.filter((e) => e.status === "reserved").length;
+    const free = allEvents.filter((e) => e.status === "free").length;
+    
+    return {
+      total,
+      paid,
+      reserved,
+      free,
+      conversionRate: total > 0 ? ((paid / total) * 100).toFixed(1) : "0",
+    };
+  }, [overviewSlotsState]);
+
   return (
-    <div
-      className="space-y-4 p-4 overflow-x-auto"
-      style={{
-        borderRadius: "30px",
-        background: "var(--panel)",
-        border: "1px solid var(--card-border)",
-      }}
-    >
+    <div className="space-y-4 md:space-y-6 overflow-x-auto">
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <Card className="p-4 md:p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(99, 102, 241, 0.1)" }}>
+                  <CalendarDays className="h-4 w-4 md:h-5 md:w-5" style={{ color: "#6366F1" }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm font-medium truncate" style={{ color: "var(--muted-foreground)" }}>Всего бронирований</p>
+                </div>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.total}</p>
+              <div className="flex items-center gap-1 text-xs md:text-sm">
+                <span style={{ color: "var(--muted-foreground)" }}>Активные записи</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 md:p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(16, 185, 129, 0.1)" }}>
+                  <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5" style={{ color: "#10B981" }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm font-medium truncate" style={{ color: "var(--muted-foreground)" }}>Оплачено</p>
+                </div>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.paid}</p>
+              <div className="flex items-center gap-1 text-xs md:text-sm">
+                <span style={{ color: "var(--muted-foreground)" }}>{stats.conversionRate}% конверсия</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 md:p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(245, 158, 11, 0.1)" }}>
+                  <Clock className="h-4 w-4 md:h-5 md:w-5" style={{ color: "#F59E0B" }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm font-medium truncate" style={{ color: "var(--muted-foreground)" }}>Бронь</p>
+                </div>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.reserved}</p>
+              <div className="flex items-center gap-1 text-xs md:text-sm">
+                <span style={{ color: "var(--muted-foreground)" }}>Ожидают оплаты</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 md:p-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-8 w-8 md:h-10 md:w-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(16, 185, 129, 0.1)" }}>
+                  <Activity className="h-4 w-4 md:h-5 md:w-5" style={{ color: "#10B981" }} />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs md:text-sm font-medium truncate" style={{ color: "var(--muted-foreground)" }}>Свободно</p>
+                </div>
+              </div>
+              <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.free}</p>
+              <div className="flex items-center gap-1 text-xs md:text-sm">
+                <span style={{ color: "var(--muted-foreground)" }}>Доступные слоты</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+
       {/* Фильтры и поиск */}
-      <Card>
+      <Card className="p-4 md:p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap gap-2">
             {viewMode === "overview" ? (
@@ -1785,6 +1879,7 @@ export default function ScheduleLoadPage() {
             )}
             </div>
           <div className="flex flex-wrap items-center gap-2">
+            {/* Date Filter Button */}
             <div className="relative" ref={datePickerRef}>
               <button
                 type="button"
@@ -1796,22 +1891,133 @@ export default function ScheduleLoadPage() {
                 }}
                 onClick={() => {
                   setShowDatePicker((prev) => !prev);
-                  setShowOverviewDatePicker(false); // Закрываем календарь обзора если открыт
+                  setShowOverviewDatePicker(false);
                 }}
               >
-                <CalendarIcon className="h-4 w-4" />
-                {currentDate.toLocaleDateString("ru-RU", {
-                  day: "2-digit",
-                  month: "short",
+                <Filter className="h-4 w-4" />
+                <span>
+                  Дата: {startDate ? startDate.toLocaleDateString("ru-RU", {
+                    day: "numeric",
+                    month: "long",
                   year: "numeric",
-                })}
+                  }) : "Выберите дату"}
+                  {endDate && ` - ${endDate.toLocaleDateString("ru-RU", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}`}
+                </span>
               </button>
+              
               {showDatePicker && (
-                <div className="absolute right-0 mt-2 w-64 rounded-xl border p-3 shadow-lg z-50" style={{ background: "var(--panel)", borderColor: "var(--card-border)" }}>
-                  <div className="mb-2 flex items-center justify-between">
+                <div 
+                  className="absolute right-0 mt-2 w-[600px] rounded-xl border shadow-lg z-50"
+                  style={{ 
+                    background: "#FFFFFF", 
+                    borderColor: "var(--card-border)",
+                    animation: "fadeInSlideDown 0.2s ease-out",
+                  }}
+                >
+                  {/* Header with buttons */}
+                  <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: "var(--card-border)" }}>
+                    <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      className="flex h-8 w-8 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium"
+                        style={{
+                          background: "var(--panel)",
+                          borderColor: "var(--card-border)",
+                          color: "var(--foreground)",
+                        }}
+                        onClick={() => {
+                          if (startDate) {
+                            setCurrentDate(startDate);
+                          }
+                        }}
+                      >
+                        Дата начала
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+                      
+                      <div className="relative" ref={operatorDropdownRef}>
+                        <button
+                          type="button"
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium"
+                          style={{
+                            background: "var(--panel)",
+                            borderColor: "var(--card-border)",
+                            color: "var(--foreground)",
+                          }}
+                          onClick={() => setShowOperatorDropdown(!showOperatorDropdown)}
+                        >
+                          {dateFilterOperator === "is" && "Равно"}
+                          {dateFilterOperator === "is-before" && "До"}
+                          {dateFilterOperator === "is-after" && "После"}
+                          {dateFilterOperator === "is-on-or-before" && "Равно или до"}
+                          {dateFilterOperator === "is-on-or-after" && "Равно или после"}
+                          {dateFilterOperator === "is-in-between" && "Между"}
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                        
+                        {showOperatorDropdown && (
+                          <div 
+                            className="absolute left-0 mt-1 w-48 rounded-lg border shadow-lg z-10"
+                            style={{ 
+                              background: "#FFFFFF", 
+                              borderColor: "var(--card-border)",
+                              animation: "fadeInSlideDown 0.15s ease-out",
+                            }}
+                          >
+                            {[
+                              { value: "is", label: "Равно" },
+                              { value: "is-before", label: "До" },
+                              { value: "is-after", label: "После" },
+                              { value: "is-on-or-before", label: "Равно или до" },
+                              { value: "is-on-or-after", label: "Равно или после" },
+                              { value: "is-in-between", label: "Между" },
+                            ].map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors"
+                                style={{
+                                  color: dateFilterOperator === option.value ? "var(--foreground)" : "var(--muted-foreground)",
+                                  background: dateFilterOperator === option.value ? "var(--muted)" : "transparent",
+                                }}
+                                onClick={() => {
+                                  setDateFilterOperator(option.value as any);
+                                  setShowOperatorDropdown(false);
+                                }}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-red-500 hover:text-red-600 transition-colors"
+                      onClick={() => {
+                        setStartDate(null);
+                        setEndDate(null);
+                        setShowDatePicker(false);
+                      }}
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                  
+                  {/* Calendar and dropdown side by side */}
+                  <div className="flex">
+                    {/* Calendar */}
+                    <div className="flex-1 p-4">
+                      <div className="mb-4 flex items-center justify-between">
+                        <button
+                          type="button"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border transition-colors hover:opacity-80"
                       style={{ borderColor: "var(--card-border)", color: "var(--foreground)" }}
                       onClick={() => handleMonthNavigate(-1)}
                     >
@@ -1825,15 +2031,15 @@ export default function ScheduleLoadPage() {
                     </span>
                     <button
                       type="button"
-                      className="flex h-8 w-8 items-center justify-center rounded-xl border transition-colors hover:opacity-80"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border transition-colors hover:opacity-80"
                       style={{ borderColor: "var(--card-border)", color: "var(--foreground)" }}
                       onClick={() => handleMonthNavigate(1)}
                     >
                       <ChevronRight className="h-4 w-4" />
                     </button>
                   </div>
-                  <div className="grid grid-cols-7 gap-1 text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: "var(--muted-foreground)" }}>
-                    {["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((label) => (
+                      <div className="grid grid-cols-7 gap-1 text-[11px] font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--muted-foreground)" }}>
+                        {["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"].map((label) => (
                       <span key={label} className="text-center">
                         {label}
                       </span>
@@ -1846,25 +2052,48 @@ export default function ScheduleLoadPage() {
                           return <span key={`${weekIndex}-${dayIndex}`} className="h-9" />;
                         }
                         const { day, date } = dayData;
-                        const isActive = date.toDateString() === currentDate.toDateString();
+                            const isActive = startDate && date.toDateString() === startDate.toDateString();
+                            const isEndDate = endDate && date.toDateString() === endDate.toDateString();
+                            const isInRange = startDate && endDate && date >= startDate && date <= endDate;
+                            
                         return (
                           <button
                             key={`${weekIndex}-${dayIndex}`}
                             type="button"
-                            className={`h-9 rounded-xl transition-colors ${
-                              isActive ? "font-semibold" : "hover:opacity-80"
+                                className={`h-9 rounded transition-colors ${
+                                  isActive || isEndDate ? "font-semibold" : "hover:opacity-80"
                             }`}
                             style={{
-                              background: isActive ? "var(--muted)" : "transparent",
-                              color: isActive ? "var(--foreground)" : "var(--muted-foreground)",
+                                  background: isActive || isEndDate ? "#000000" : isInRange ? "rgba(0, 0, 0, 0.1)" : "transparent",
+                                  color: isActive || isEndDate ? "#FFFFFF" : "var(--muted-foreground)",
                             }}
-                            onClick={() => handleDateSelect(day)}
+                                onClick={() => {
+                                  if (dateFilterOperator === "is-in-between") {
+                                    if (!startDate || (startDate && endDate)) {
+                                      setStartDate(date);
+                                      setEndDate(null);
+                                    } else {
+                                      if (date > startDate) {
+                                        setEndDate(date);
+                                      } else {
+                                        setEndDate(startDate);
+                                        setStartDate(date);
+                                      }
+                                    }
+                                  } else {
+                                    setStartDate(date);
+                                    setEndDate(null);
+                                  }
+                                  setCurrentDate(date);
+                                }}
                           >
                             {day}
                           </button>
                         );
                       }),
                     )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -2136,7 +2365,14 @@ export default function ScheduleLoadPage() {
               const kidsStartColumn = pilatesStartColumn + pilatesColumns.length;
 
               return (
-                <div className="schedule-load-overview" style={{ gridTemplateColumns: overviewTemplate, minWidth: "fit-content" }}>
+                <div 
+                  className="schedule-load-overview" 
+                  style={{ 
+                    gridTemplateColumns: overviewTemplate, 
+                    minWidth: "fit-content",
+                    animation: "fadeInSlideDown 0.3s ease-out",
+                  }}
+                >
                   {/* Пустая ячейка в первом ряду */}
                   <div className="schedule-load-group-header" style={{ gridColumn: 1 }}></div>
                   
@@ -2364,42 +2600,48 @@ export default function ScheduleLoadPage() {
                               } : undefined}
                               style={{
                                 gridColumn: cellColumn,
-                                background: eventColor + "15",
-                                borderColor: eventColor + "60",
+                                background: "var(--panel)",
+                                borderLeft: `4px solid ${eventColor}`,
+                                borderTop: "1px solid var(--card-border)",
+                                borderBottom: "1px solid var(--card-border)",
+                                borderRight: "1px solid var(--card-border)",
                                 cursor: isBodymind ? "move" : "pointer",
+                                borderRadius: "8px",
+                                margin: "2px 4px",
+                                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
                               }}
                             >
-                              <div className="schedule-load-event-content" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: "100%", justifyContent: "space-between", gap: "0.25rem" }}>
-                                <div style={{ flex: "0 1 auto", display: "flex", flexDirection: "column", gap: "0.25rem", overflow: "hidden" }}>
+                              <div className="schedule-load-event-content" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: "100%", justifyContent: "space-between", gap: "0.375rem", padding: "0.5rem" }}>
+                                <div style={{ flex: "1 1 auto", display: "flex", flexDirection: "column", gap: "0.375rem", overflow: "hidden", minHeight: 0 }}>
                                   {isBodymind ? (
                                     <>
-                                      <div className="schedule-load-event-name" style={{ fontSize: "0.75rem", lineHeight: "1.2", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                                      <div className="schedule-load-event-name" style={{ fontSize: "0.8125rem", fontWeight: 600, lineHeight: "1.3", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", color: "var(--foreground)", margin: 0, flexShrink: 0 }}>
                                         {(scheduleData as ScheduleGroup).name}
                                       </div>
-                                      <div className="schedule-load-event-meta" style={{ marginTop: "0", gap: "0.5rem", fontSize: "0.625rem" }}>
-                                        <div className="schedule-load-event-meta-item">
-                                          <Clock className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
-                                          <span>{time}</span>
+                                      <div className="schedule-load-event-meta" style={{ margin: 0, gap: "0.5rem", fontSize: "0.625rem", display: "flex", alignItems: "center", flexWrap: "wrap", flexShrink: 0 }}>
+                                        <div className="schedule-load-event-meta-item" style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--foreground)", flexShrink: 0 }}>
+                                          <Clock className="schedule-load-event-icon" style={{ width: "0.75rem", height: "0.75rem", color: "var(--muted-foreground)", flexShrink: 0 }} />
+                                          <span style={{ color: "var(--foreground)", whiteSpace: "nowrap" }}>{time}</span>
                                         </div>
-                                        <div className="schedule-load-event-meta-item">
-                                          <User className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
-                                          <span>{(scheduleData as ScheduleGroup).trainer}</span>
+                                        <div className="schedule-load-event-meta-item" style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--foreground)", flexShrink: 0 }}>
+                                          <User className="schedule-load-event-icon" style={{ width: "0.75rem", height: "0.75rem", color: "var(--muted-foreground)", flexShrink: 0 }} />
+                                          <span style={{ color: "var(--foreground)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "80px" }}>{(scheduleData as ScheduleGroup).trainer}</span>
                                         </div>
-                                        <div className="schedule-load-event-meta-item">
-                                          <Users className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
-                                          <span>{(scheduleData as ScheduleGroup).capacity}</span>
+                                        <div className="schedule-load-event-meta-item" style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--foreground)", flexShrink: 0 }}>
+                                          <Users className="schedule-load-event-icon" style={{ width: "0.75rem", height: "0.75rem", color: "var(--muted-foreground)", flexShrink: 0 }} />
+                                          <span style={{ color: "var(--foreground)", whiteSpace: "nowrap" }}>{(scheduleData as ScheduleGroup).capacity}</span>
                                         </div>
                                       </div>
                                     </>
                                   ) : (
                                     <>
-                                      <div className="schedule-load-event-name" style={{ fontSize: "0.75rem", lineHeight: "1.2" }}>
+                                      <div className="schedule-load-event-name" style={{ fontSize: "0.8125rem", fontWeight: 600, lineHeight: "1.3", color: "var(--foreground)", margin: 0, flexShrink: 0 }}>
                                         {(scheduleData as ScheduleTrainer).trainer}
                                       </div>
-                                      <div className="schedule-load-event-meta" style={{ marginTop: "0", gap: "0.5rem", fontSize: "0.625rem" }}>
-                                        <div className="schedule-load-event-meta-item">
-                                          <Clock className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
-                                          <span>{time}</span>
+                                      <div className="schedule-load-event-meta" style={{ margin: 0, gap: "0.5rem", fontSize: "0.625rem", display: "flex", alignItems: "center", flexWrap: "wrap", flexShrink: 0 }}>
+                                        <div className="schedule-load-event-meta-item" style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--foreground)", flexShrink: 0 }}>
+                                          <Clock className="schedule-load-event-icon" style={{ width: "0.75rem", height: "0.75rem", color: "var(--muted-foreground)", flexShrink: 0 }} />
+                                          <span style={{ color: "var(--foreground)", whiteSpace: "nowrap" }}>{time}</span>
                                         </div>
                                       </div>
                                     </>
@@ -2410,11 +2652,12 @@ export default function ScheduleLoadPage() {
                                   color: eventColor, 
                                   fontWeight: 600, 
                                   marginTop: "auto", 
-                                  paddingTop: "0.25rem",
+                                  paddingTop: "0.375rem",
                                   textTransform: "uppercase",
                                   flexShrink: 0,
-                                  lineHeight: "1.1",
-                                  whiteSpace: "nowrap"
+                                  lineHeight: "1.2",
+                                  whiteSpace: "nowrap",
+                                  letterSpacing: "0.05em"
                                 }}>
                                   {isBodymind ? "Body Mind" : "Pilates Reformer"}
                                 </div>
@@ -2540,44 +2783,44 @@ export default function ScheduleLoadPage() {
                               style={{
                               gridColumn: cellColumn,
                                 gridRow: span > 1 ? `span ${span}` : undefined,
-                                background: coworkEvent.color + "25",
-                                borderTop: `1px solid ${coworkEvent.color}80`,
-                                borderBottom: `1px solid ${coworkEvent.color}80`,
-                                borderLeft: `1px solid ${coworkEvent.color}80`,
-                                borderRight: `1px solid ${coworkEvent.color}80`,
+                                background: "var(--panel)",
+                                borderLeft: `4px solid ${coworkEvent.color}`,
+                                borderTop: "1px solid var(--card-border)",
+                                borderBottom: "1px solid var(--card-border)",
+                                borderRight: "1px solid var(--card-border)",
                                 cursor: "move",
                                 display: "flex",
                                 flexDirection: "column",
                                 alignItems: "flex-start",
                                 justifyContent: "flex-start",
-                                padding: "0.625rem 0.75rem",
-                                borderRadius: span > 1 ? "20px" : "10px",
-                                borderTopLeftRadius: span > 1 ? "20px" : "10px",
-                                borderTopRightRadius: span > 1 ? "20px" : "10px",
-                                borderBottomLeftRadius: span > 1 ? "20px" : "10px",
-                                borderBottomRightRadius: span > 1 ? "20px" : "10px",
+                                padding: "0.5rem 0.625rem",
+                                borderRadius: "8px",
                                 height: span > 1 ? "100%" : "auto",
-                                margin: span > 1 ? "4px" : "0",
+                                margin: span > 1 ? "2px 4px" : "2px",
                                 position: "relative",
                                 zIndex: span > 1 ? 10 : 1,
                                 boxSizing: "border-box",
                                 userSelect: "none",
                                 overflow: "hidden",
+                                boxShadow: "0 1px 2px rgba(0, 0, 0, 0.05)",
                               }}
                             >
-                              <div className="schedule-load-event-content" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: "100%", justifyContent: "space-between", gap: "0.25rem", width: "100%" }}>
-                                <div style={{ flex: "0 1 auto", display: "flex", flexDirection: "column", gap: "0.25rem", overflow: "hidden" }}>
-                                  <div className="schedule-load-event-name" style={{ fontSize: "0.75rem", lineHeight: "1.2", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+                              <div className="schedule-load-event-content" style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: "100%", justifyContent: "space-between", gap: "0.375rem", width: "100%" }}>
+                                <div style={{ flex: "0 1 auto", display: "flex", flexDirection: "column", gap: "0.375rem", overflow: "hidden" }}>
+                                  <div className="schedule-load-event-name" style={{ fontSize: "0.8125rem", fontWeight: 600, lineHeight: "1.3", overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", color: "var(--foreground)" }}>
                                 {clientName}
                               </div>
-                                  <div className="schedule-load-event-meta" style={{ marginTop: "0", gap: "0.5rem", fontSize: "0.625rem" }}>
-                                <div className="schedule-load-event-meta-item">
-                                      <Clock className="schedule-load-event-icon" style={{ width: "0.6875rem", height: "0.6875rem" }} />
+                                  <div className="schedule-load-event-meta" style={{ marginTop: "0", gap: "0.5rem", fontSize: "0.6875rem", display: "flex", alignItems: "center", flexWrap: "wrap" }}>
+                                <div className="schedule-load-event-meta-item" style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "var(--muted-foreground)" }}>
+                                      <Clock className="schedule-load-event-icon" style={{ width: "0.75rem", height: "0.75rem" }} />
                                         <span>{timeRange}</span>
                                       </div>
-                                <div className="schedule-load-event-meta-item">
-                                      <span>{hoursCount} {hoursCount === 1 ? "час" : hoursCount < 5 ? "часа" : "часов"}</span>
+                                    {coworkEvent.clients && coworkEvent.clients.length > 0 && (
+                                      <div className="schedule-load-event-meta-item" style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                                        <Users className="schedule-load-event-icon" style={{ width: "0.75rem", height: "0.75rem", color: "var(--muted-foreground)" }} />
+                                        <span style={{ color: "var(--muted-foreground)" }}>{coworkEvent.clients.length}</span>
                                     </div>
+                                    )}
                                   </div>
                                 </div>
                               </div>
@@ -3450,25 +3693,76 @@ export default function ScheduleLoadPage() {
                     </>
                   ) : drawerMode === "bodymind" && selectedBodymindGroup ? (
                     <>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
-                        <div style={{ 
-                          fontSize: "0.6875rem", 
-                          fontWeight: 600, 
-                          color: "var(--muted-foreground)",
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                        }}>
-                          Редактирование
-                        </div>
-                        <h2 className="schedule-event-drawer__title">{selectedBodymindGroup.name}</h2>
-                      </div>
+                      <button 
+                        className="schedule-event-drawer__close" 
+                        onClick={handleCloseDrawer} 
+                        aria-label="Закрыть"
+                        style={{
+                          position: "absolute",
+                          left: "1.5rem",
+                          top: "1.5rem",
+                          width: "32px",
+                          height: "32px",
+                          borderRadius: "8px",
+                          border: "none",
+                          background: "transparent",
+                          color: "var(--foreground)",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "var(--muted)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "transparent";
+                        }}
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", flex: 1, marginLeft: "3rem" }}>
+                        <h2 className="schedule-event-drawer__title" style={{ fontSize: "1.5rem", fontWeight: 600, margin: 0 }}>
+                          {selectedBodymindGroup.name}
+                        </h2>
                       <div className="schedule-event-drawer__badge" style={{ 
                         color: "var(--foreground)",
                         background: "rgba(99, 102, 241, 0.06)",
                         border: "1.5px solid rgba(99, 102, 241, 0.2)",
+                          alignSelf: "flex-start",
                       }}>
                         Body Mind
         </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingBodymind(!isEditingBodymind)}
+                        style={{
+                          padding: "0.5rem 1rem",
+                          borderRadius: "8px",
+                          border: "1px solid var(--card-border)",
+                          background: isEditingBodymind ? "var(--muted)" : "var(--background)",
+                          color: "var(--foreground)",
+                          fontSize: "0.875rem",
+                          fontWeight: 500,
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                          whiteSpace: "nowrap",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isEditingBodymind) {
+                            e.currentTarget.style.background = "var(--muted)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isEditingBodymind) {
+                            e.currentTarget.style.background = "var(--background)";
+                          }
+                        }}
+                      >
+                        {isEditingBodymind ? "Отменить" : "Редактировать"}
+                      </button>
                     </>
                   ) : drawerMode === "create-schedule" ? (
                     <>
@@ -3490,9 +3784,11 @@ export default function ScheduleLoadPage() {
                     </>
                   ) : null}
                 </div>
+                {drawerMode !== "bodymind" && (
                 <button className="schedule-event-drawer__close" onClick={handleCloseDrawer} aria-label="Закрыть">
                   <X className="h-4 w-4" />
                 </button>
+                )}
               </div>
 
               <div className="schedule-event-drawer__content">
@@ -5415,21 +5711,27 @@ export default function ScheduleLoadPage() {
 
                 {/* Drawer для Body Mind */}
                 {drawerMode === "bodymind" && selectedBodymindGroup && (
-                  <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
-                    {/* Название группы */}
+                  <div style={{ padding: "1.5rem", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+                    {/* Ключевые атрибуты вертикально расположенные */}
                     <div style={{
-                      padding: "0.75rem 0.875rem",
-                      borderRadius: "10px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.75rem",
+                    }}>
+                      {/* Название */}
+                      <div style={{
+                        padding: "1rem 1.25rem",
+                        borderRadius: "12px",
                       background: "var(--muted)",
                       border: "1px solid var(--card-border)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.5rem",
                     }}>
                       <div style={{
-                        fontSize: "0.6875rem",
-                        fontWeight: 600,
+                          fontSize: "0.75rem",
+                          fontWeight: 500,
                         color: "var(--muted-foreground)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        marginBottom: "0.375rem",
                       }}>
                         Название
                       </div>
@@ -5449,8 +5751,8 @@ export default function ScheduleLoadPage() {
                           style={{
                             width: "100%",
                             padding: "0.625rem 0.875rem",
-                            borderRadius: "10px",
-                            border: "1.5px solid var(--card-border)",
+                              borderRadius: "8px",
+                              border: "1px solid var(--card-border)",
                             background: "var(--background)",
                             fontSize: "0.875rem",
                             color: "var(--foreground)",
@@ -5470,18 +5772,18 @@ export default function ScheduleLoadPage() {
 
                     {/* Тренер */}
                     <div style={{
-                      padding: "0.75rem 0.875rem",
-                      borderRadius: "10px",
+                        padding: "1rem 1.25rem",
+                        borderRadius: "12px",
                       background: "var(--muted)",
                       border: "1px solid var(--card-border)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.5rem",
                     }}>
                       <div style={{
-                        fontSize: "0.6875rem",
-                        fontWeight: 600,
+                          fontSize: "0.75rem",
+                          fontWeight: 500,
                         color: "var(--muted-foreground)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        marginBottom: "0.375rem",
                       }}>
                         Тренер
                       </div>
@@ -5490,31 +5792,23 @@ export default function ScheduleLoadPage() {
                           fontSize: "0.9375rem",
                           fontWeight: 600,
                           color: "var(--foreground)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
                         }}>
-                          <User className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
                           {selectedBodymindGroup.trainer}
                         </div>
                       ) : !showBodymindTrainerSelect ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.75rem" }}>
                           <div style={{
                             fontSize: "0.9375rem",
                           fontWeight: 600,
                           color: "var(--foreground)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
                         }}>
-                            <User className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
                             {editingBodymindTrainer}
                           </div>
                           <button
                             type="button"
                             onClick={() => setShowBodymindTrainerSelect(true)}
                             style={{
-                              padding: "0.5rem 0.75rem",
+                                padding: "0.5rem 0.875rem",
                               borderRadius: "8px",
                               border: "1px solid var(--card-border)",
                               background: "var(--background)",
@@ -5523,7 +5817,7 @@ export default function ScheduleLoadPage() {
                               fontWeight: 500,
                               cursor: "pointer",
                               transition: "all 0.2s ease",
-                              alignSelf: "flex-start",
+                                whiteSpace: "nowrap",
                             }}
                             onMouseEnter={(e) => {
                               e.currentTarget.style.background = "var(--muted)";
@@ -5532,7 +5826,7 @@ export default function ScheduleLoadPage() {
                               e.currentTarget.style.background = "var(--background)";
                             }}
                           >
-                            Выбрать тренера
+                              Изменить
                           </button>
                         </div>
                       ) : (
@@ -5546,8 +5840,8 @@ export default function ScheduleLoadPage() {
                           style={{
                             width: "100%",
                             padding: "0.625rem 0.875rem",
-                            borderRadius: "10px",
-                            border: "1.5px solid var(--card-border)",
+                                  borderRadius: "8px",
+                                  border: "1px solid var(--card-border)",
                             background: "var(--background)",
                             fontSize: "0.875rem",
                             color: "var(--foreground)",
@@ -5592,18 +5886,18 @@ export default function ScheduleLoadPage() {
 
                     {/* Вместимость */}
                     <div style={{
-                      padding: "0.75rem 0.875rem",
-                      borderRadius: "10px",
+                        padding: "1rem 1.25rem",
+                        borderRadius: "12px",
                       background: "var(--muted)",
                       border: "1px solid var(--card-border)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.5rem",
                     }}>
                       <div style={{
-                        fontSize: "0.6875rem",
-                        fontWeight: 600,
+                          fontSize: "0.75rem",
+                          fontWeight: 500,
                         color: "var(--muted-foreground)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        marginBottom: "0.375rem",
                       }}>
                         Вместимость
                       </div>
@@ -5617,8 +5911,8 @@ export default function ScheduleLoadPage() {
                         </div>
                       ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                          <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>
-                            Текущее: {editingBodymindClients.length} / Максимум:
+                            <div style={{ fontSize: "0.8125rem", color: "var(--muted-foreground)" }}>
+                              {editingBodymindClients.length} / Макс:
                           </div>
                         <input
                             type="number"
@@ -5635,8 +5929,8 @@ export default function ScheduleLoadPage() {
                           style={{
                             width: "100%",
                             padding: "0.625rem 0.875rem",
-                            borderRadius: "10px",
-                            border: "1.5px solid var(--card-border)",
+                                borderRadius: "8px",
+                                border: "1px solid var(--card-border)",
                             background: "var(--background)",
                             fontSize: "0.875rem",
                             color: "var(--foreground)",
@@ -5657,18 +5951,18 @@ export default function ScheduleLoadPage() {
 
                     {/* Дата и время */}
                     <div style={{
-                      padding: "0.75rem 0.875rem",
-                      borderRadius: "10px",
+                        padding: "1rem 1.25rem",
+                        borderRadius: "12px",
                       background: "var(--muted)",
                       border: "1px solid var(--card-border)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.5rem",
                     }}>
                       <div style={{
-                        fontSize: "0.6875rem",
-                        fontWeight: 600,
+                          fontSize: "0.75rem",
+                          fontWeight: 500,
                         color: "var(--muted-foreground)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        marginBottom: "0.375rem",
                       }}>
                         Дата и время
                       </div>
@@ -5681,7 +5975,7 @@ export default function ScheduleLoadPage() {
                         gap: "0.375rem",
                       }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                          <Calendar className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                            <Calendar className="h-4 w-4" style={{ color: "var(--muted-foreground)" }} />
                           <span>
                             {(() => {
                               const dayNames = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
@@ -5694,57 +5988,120 @@ export default function ScheduleLoadPage() {
                           </span>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <Clock className="h-3.5 w-3.5" style={{ color: "var(--muted-foreground)" }} />
+                            <Clock className="h-4 w-4" style={{ color: "var(--muted-foreground)" }} />
                           <span>{selectedBodymindGroup.time}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
 
                     {/* Клиенты */}
                     <div style={{
-                      padding: "0.75rem 0.875rem",
-                      borderRadius: "10px",
-                      border: "1px solid var(--card-border)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "1rem",
                     }}>
                       <div style={{
-                        fontSize: "0.6875rem",
-                        fontWeight: 600,
-                        color: "var(--muted-foreground)",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        marginBottom: "0.375rem",
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
                       }}>
-                        <span>Клиенты</span>
-                        <span style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>
+                        <div style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                        }}>
+                          <span style={{
+                            fontSize: "1rem",
+                            fontWeight: 600,
+                            color: "var(--foreground)",
+                          }}>
+                            Клиенты
+                          </span>
+                          <span style={{
+                            fontSize: "0.75rem",
+                            fontWeight: 600,
+                            color: "var(--foreground)",
+                            background: "var(--muted)",
+                            padding: "0.125rem 0.5rem",
+                            borderRadius: "12px",
+                            minWidth: "20px",
+                            textAlign: "center",
+                          }}>
                           {editingBodymindClients.length}/{editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || 0}
                         </span>
+                        </div>
+                        {isEditingBodymind && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const maxCap = parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0");
+                              if (editingBodymindClients.length >= maxCap) {
+                                toast.error({ text: `Достигнута максимальная вместимость: ${maxCap} человек` });
+                                return;
+                              }
+                              setShowEditingBodymindClientSelect(true);
+                            }}
+                            disabled={editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0")}
+                            style={{
+                              padding: "0.375rem 0.75rem",
+                              borderRadius: "6px",
+                              border: "none",
+                              background: editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0") ? "var(--muted)" : "var(--background)",
+                              color: editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0") ? "var(--muted-foreground)" : "var(--foreground)",
+                              fontSize: "0.8125rem",
+                              fontWeight: 500,
+                              cursor: editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0") ? "not-allowed" : "pointer",
+                              transition: "all 0.2s ease",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.375rem",
+                            }}
+                            onMouseEnter={(e) => {
+                              if (editingBodymindClients.length < parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0")) {
+                                e.currentTarget.style.background = "var(--muted)";
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              if (editingBodymindClients.length < parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0")) {
+                                e.currentTarget.style.background = "var(--background)";
+                              }
+                            }}
+                          >
+                            <Plus className="h-4 w-4" />
+                            Добавить клиента
+                          </button>
+                        )}
                       </div>
                       {!isEditingBodymind ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                           {editingBodymindClients.length > 0 ? (
                             editingBodymindClients.map((client) => (
                               <div
                                 key={client.id}
                                 style={{
-                                  padding: "0.5rem 0.75rem",
+                                  padding: "0.875rem 1rem",
                                   borderRadius: "8px",
-                                  background: "var(--muted)",
+                                  background: "var(--panel)",
+                                  border: "1px solid var(--card-border)",
                                   display: "flex",
                                   justifyContent: "space-between",
                                   alignItems: "center",
                                 }}
                               >
                                 <div>
-                                  <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>{client.name}</div>
-                                  <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>{client.phone}</div>
+                                  <div style={{ fontSize: "0.9375rem", fontWeight: 500, color: "var(--foreground)" }}>{client.name}</div>
+                                  <div style={{ fontSize: "0.8125rem", color: "var(--muted-foreground)", marginTop: "0.25rem" }}>{client.phone}</div>
                                 </div>
                               </div>
                             ))
                           ) : (
                             <div style={{
+                              padding: "1.5rem",
+                              borderRadius: "8px",
+                              background: "var(--panel)",
+                              border: "1px solid var(--card-border)",
+                              textAlign: "center",
                               fontSize: "0.875rem",
                               color: "var(--muted-foreground)",
                             }}>
@@ -5753,24 +6110,25 @@ export default function ScheduleLoadPage() {
                           )}
                         </div>
                       ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                           {editingBodymindClients.length > 0 && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                               {editingBodymindClients.map((client) => (
                                 <div
                                   key={client.id}
                                   style={{
-                                    padding: "0.5rem 0.75rem",
+                                    padding: "0.875rem 1rem",
                                     borderRadius: "8px",
-                                    background: "var(--muted)",
+                                    background: "var(--panel)",
+                                    border: "1px solid var(--card-border)",
                                     display: "flex",
                                     justifyContent: "space-between",
                                     alignItems: "center",
                                   }}
                                 >
                                   <div>
-                                    <div style={{ fontSize: "0.875rem", fontWeight: 500 }}>{client.name}</div>
-                                    <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>{client.phone}</div>
+                                    <div style={{ fontSize: "0.9375rem", fontWeight: 500, color: "var(--foreground)" }}>{client.name}</div>
+                                    <div style={{ fontSize: "0.8125rem", color: "var(--muted-foreground)", marginTop: "0.25rem" }}>{client.phone}</div>
                                   </div>
                                   <button
                                     type="button"
@@ -5778,13 +6136,21 @@ export default function ScheduleLoadPage() {
                                       setEditingBodymindClients(prev => prev.filter(c => c.id !== client.id));
                                     }}
                                     style={{
-                                      padding: "0.25rem 0.5rem",
+                                      padding: "0.375rem 0.625rem",
                                       borderRadius: "6px",
                                       border: "none",
-                                      background: "var(--background)",
+                                      background: "transparent",
                                       color: "#ef4444",
-                                      fontSize: "0.75rem",
+                                      fontSize: "0.8125rem",
+                                      fontWeight: 500,
                                       cursor: "pointer",
+                                      transition: "all 0.2s ease",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.background = "transparent";
                                     }}
                                   >
                                     Удалить
@@ -5793,34 +6159,7 @@ export default function ScheduleLoadPage() {
                               ))}
                             </div>
                           )}
-                          {!showEditingBodymindClientSelect ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const maxCap = parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0");
-                                if (editingBodymindClients.length >= maxCap) {
-                                  toast.error({ text: `Достигнута максимальная вместимость: ${maxCap} человек` });
-                                  return;
-                                }
-                                setShowEditingBodymindClientSelect(true);
-                              }}
-                              disabled={editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0")}
-                              style={{
-                                padding: "0.5rem 0.75rem",
-                                borderRadius: "8px",
-                                border: "1px solid var(--card-border)",
-                                background: editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0") ? "var(--muted)" : "var(--background)",
-                                color: editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0") ? "var(--muted-foreground)" : "var(--foreground)",
-                                fontSize: "0.8125rem",
-                                fontWeight: 500,
-                                cursor: editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0") ? "not-allowed" : "pointer",
-                                transition: "all 0.2s ease",
-                                alignSelf: "flex-start",
-                              }}
-                            >
-                              {editingBodymindClients.length >= parseInt(editingBodymindCapacity || selectedBodymindGroup.capacity.split('/')[1] || "0") ? "Вместимость заполнена" : "Добавить клиента"}
-                            </button>
-                          ) : (
+                          {showEditingBodymindClientSelect && (
                             <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                               <div style={{ position: "relative" }}>
                                 <input
@@ -5937,9 +6276,10 @@ export default function ScheduleLoadPage() {
                     {/* Кнопки действий */}
                     <div style={{
                       display: "flex",
-                      gap: "0.625rem",
-                      paddingTop: "1rem",
+                      gap: "0.75rem",
+                      paddingTop: "1.5rem",
                       borderTop: "1px solid var(--card-border)",
+                      marginTop: "0.5rem",
                     }}>
                       {!isEditingBodymind ? (
                         <>
@@ -5951,8 +6291,8 @@ export default function ScheduleLoadPage() {
                             style={{
                               flex: 1,
                               padding: "0.75rem 1rem",
-                              borderRadius: "10px",
-                              border: "1.5px solid var(--card-border)",
+                              borderRadius: "8px",
+                              border: "1px solid var(--card-border)",
                               background: "var(--background)",
                               color: "#ef4444",
                               fontSize: "0.875rem",
@@ -6007,22 +6347,20 @@ export default function ScheduleLoadPage() {
                             style={{
                               flex: 1,
                               padding: "0.75rem 1rem",
-                              borderRadius: "10px",
-                              border: "1.5px solid transparent",
-                              background: "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
-                              color: "#fff",
+                              borderRadius: "8px",
+                              border: "1px solid transparent",
+                              background: "var(--foreground)",
+                              color: "var(--background)",
                               fontSize: "0.875rem",
                               fontWeight: 600,
                               cursor: "pointer",
                               transition: "all 0.2s ease",
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.transform = "translateY(-1px)";
-                              e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.3)";
+                              e.currentTarget.style.opacity = "0.9";
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.transform = "translateY(0)";
-                              e.currentTarget.style.boxShadow = "none";
+                              e.currentTarget.style.opacity = "1";
                             }}
                           >
                             Редактировать

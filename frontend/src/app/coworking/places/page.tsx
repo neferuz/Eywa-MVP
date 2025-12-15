@@ -280,20 +280,56 @@ export default function CoworkingPlacesPage() {
             >
               <div className="absolute top-3 right-3 flex items-center gap-2">
                 <button
-                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 transition-colors"
                   onClick={() => handleEdit(place)}
                   title="Редактировать"
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--muted)",
+                    color: "var(--muted-foreground)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--panel)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--muted)";
+                  }}
                 >
-                  <Pencil className="h-4 w-4" />
+                  <Pencil className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
                   onClick={() => handleDeleteClick(place.id, place.name)}
                   title="Удалить"
+                  style={{
+                    width: "28px",
+                    height: "28px",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "transparent",
+                    color: "#EF4444",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
                 >
-                  <Trash2 className="h-4 w-4" />
+                  <Trash2 className="h-3.5 w-3.5" />
                 </button>
-                  </div>
+              </div>
 
               <div className="flex items-start justify-between gap-3 pr-8">
                 <div className="flex-1 space-y-2">
@@ -368,21 +404,62 @@ export default function CoworkingPlacesPage() {
           <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
             Это действие нельзя отменить.
           </p>
-          <div className="flex gap-2 justify-end">
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--card-border)" }}>
             <button
-              className="btn-outline px-4 py-2 text-sm"
               onClick={() => setDeleteConfirm(null)}
               disabled={deleting}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "1px solid var(--card-border)",
+                background: "var(--muted)",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: deleting ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                opacity: deleting ? 0.5 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!deleting) {
+                  e.currentTarget.style.background = "var(--panel)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!deleting) {
+                  e.currentTarget.style.background = "var(--muted)";
+                }
+              }}
             >
               Отмена
             </button>
             <button
-              className="px-4 py-2 text-sm rounded-lg text-white transition-colors"
-              style={{
-                background: deleting ? "#9ca3af" : "#ef4444",
-              }}
               onClick={handleDeleteConfirm}
               disabled={deleting}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "none",
+                background: deleting ? "var(--muted)" : "#EF4444",
+                color: deleting ? "var(--muted-foreground)" : "#fff",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: deleting ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                boxShadow: deleting ? "none" : "0 4px 12px rgba(239, 68, 68, 0.25)",
+              }}
+              onMouseEnter={(e) => {
+                if (!deleting) {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 6px 16px rgba(239, 68, 68, 0.3)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!deleting) {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(239, 68, 68, 0.25)";
+                }
+              }}
             >
               {deleting ? "Удаление..." : "Удалить"}
             </button>
@@ -418,15 +495,23 @@ export default function CoworkingPlacesPage() {
                   Название
                 </label>
                 <input
-                  className="h-11 w-full rounded-xl border px-4 text-sm transition-all focus:outline-none focus:ring-2"
+                  className="h-11 w-full rounded-xl border px-4 text-sm transition-all focus:outline-none"
                   style={{ 
-                    background: "var(--muted)", 
-                    borderColor: "var(--card-border)", 
-                    color: "var(--foreground)"
+                    background: "var(--background)", 
+                    border: "1.5px solid var(--card-border)", 
+                    color: "var(--foreground)" 
                   }}
                   placeholder="Введите название места"
                   value={form.name}
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
                 />
               </div>
               <div className="space-y-1.5">
@@ -434,14 +519,23 @@ export default function CoworkingPlacesPage() {
                   Тип
                 </label>
                 <select
-                  className="h-11 w-full rounded-xl border px-4 text-sm transition-all focus:outline-none focus:ring-2"
+                  className="h-11 w-full rounded-xl border px-4 text-sm transition-all focus:outline-none"
                   style={{ 
-                    background: "var(--muted)", 
-                    borderColor: "var(--card-border)", 
-                    color: "var(--foreground)" 
+                    background: "var(--background)", 
+                    border: "1.5px solid var(--card-border)", 
+                    color: "var(--foreground)",
+                    cursor: "pointer",
                   }}
                   value={form.type}
                   onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as CoworkingPlace["type"] }))}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
                 >
                   <option value="capsule">Капсула</option>
                   <option value="event">Ивент‑зона</option>
@@ -455,15 +549,23 @@ export default function CoworkingPlacesPage() {
               <input
                 type="number"
                 min={0}
-                className="h-11 w-full rounded-xl border px-4 text-sm transition-all focus:outline-none focus:ring-2"
+                className="h-11 w-full rounded-xl border px-4 text-sm transition-all focus:outline-none"
                 style={{ 
-                  background: "var(--muted)", 
-                  borderColor: "var(--card-border)", 
+                  background: "var(--background)", 
+                  border: "1.5px solid var(--card-border)", 
                   color: "var(--foreground)" 
                 }}
                 placeholder="Введите количество мест"
                 value={form.seats}
                 onChange={(e) => setForm((f) => ({ ...f, seats: Number(e.target.value) }))}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </div>
             <div className="space-y-1.5">
@@ -471,16 +573,24 @@ export default function CoworkingPlacesPage() {
                 Описание
               </label>
               <textarea
-                className="w-full rounded-xl border px-4 py-3 text-sm resize-none transition-all focus:outline-none focus:ring-2"
+                className="w-full rounded-xl border px-4 py-3 text-sm resize-none transition-all focus:outline-none"
                 style={{ 
-                  background: "var(--muted)", 
-                  borderColor: "var(--card-border)", 
+                  background: "var(--background)", 
+                  border: "1.5px solid var(--card-border)", 
                   color: "var(--foreground)",
                   minHeight: "100px"
                 }}
                 placeholder="Введите описание места"
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </div>
           </div>
@@ -494,10 +604,10 @@ export default function CoworkingPlacesPage() {
                 <label className="text-xs" style={{ color: "var(--muted-foreground)" }}>1 час</label>
                 <input
                   type="text"
-                  className="h-10 w-full rounded-xl border px-3 text-sm transition-all focus:outline-none focus:ring-2"
+                  className="h-10 w-full rounded-xl border px-3 text-sm transition-all focus:outline-none"
                   style={{ 
-                    background: "var(--muted)", 
-                    borderColor: "var(--card-border)", 
+                    background: "var(--background)", 
+                    border: "1.5px solid var(--card-border)", 
                     color: "var(--foreground)" 
                   }}
                   placeholder="Например: 100 000"
@@ -511,7 +621,13 @@ export default function CoworkingPlacesPage() {
                       }));
                     }
                   }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
                   onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
                     if (e.target.value && !isNaN(parseInt(e.target.value.replace(/\s/g, ""), 10))) {
                       const num = parseInt(e.target.value.replace(/\s/g, ""), 10);
                       setForm((prev) => ({
@@ -526,10 +642,10 @@ export default function CoworkingPlacesPage() {
                 <label className="text-xs" style={{ color: "var(--muted-foreground)" }}>3 часа</label>
                 <input
                   type="text"
-                  className="h-10 w-full rounded-xl border px-3 text-sm transition-all focus:outline-none focus:ring-2"
+                  className="h-10 w-full rounded-xl border px-3 text-sm transition-all focus:outline-none"
                   style={{ 
-                    background: "var(--muted)", 
-                    borderColor: "var(--card-border)", 
+                    background: "var(--background)", 
+                    border: "1.5px solid var(--card-border)", 
                     color: "var(--foreground)" 
                   }}
                   placeholder="Например: 300 000"
@@ -543,7 +659,13 @@ export default function CoworkingPlacesPage() {
                       }));
                     }
                   }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
                   onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
                     if (e.target.value && !isNaN(parseInt(e.target.value.replace(/\s/g, ""), 10))) {
                       const num = parseInt(e.target.value.replace(/\s/g, ""), 10);
                       setForm((prev) => ({
@@ -558,10 +680,10 @@ export default function CoworkingPlacesPage() {
                 <label className="text-xs" style={{ color: "var(--muted-foreground)" }}>День</label>
                 <input
                   type="text"
-                  className="h-10 w-full rounded-xl border px-3 text-sm transition-all focus:outline-none focus:ring-2"
+                  className="h-10 w-full rounded-xl border px-3 text-sm transition-all focus:outline-none"
                   style={{ 
-                    background: "var(--muted)", 
-                    borderColor: "var(--card-border)", 
+                    background: "var(--background)", 
+                    border: "1.5px solid var(--card-border)", 
                     color: "var(--foreground)" 
                   }}
                   placeholder="Например: 900 000"
@@ -575,7 +697,13 @@ export default function CoworkingPlacesPage() {
                       }));
                     }
                   }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
                   onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
                     if (e.target.value && !isNaN(parseInt(e.target.value.replace(/\s/g, ""), 10))) {
                       const num = parseInt(e.target.value.replace(/\s/g, ""), 10);
                       setForm((prev) => ({
@@ -590,10 +718,10 @@ export default function CoworkingPlacesPage() {
                 <label className="text-xs" style={{ color: "var(--muted-foreground)" }}>Месяц</label>
                 <input
                   type="text"
-                  className="h-10 w-full rounded-xl border px-3 text-sm transition-all focus:outline-none focus:ring-2"
+                  className="h-10 w-full rounded-xl border px-3 text-sm transition-all focus:outline-none"
                   style={{ 
-                    background: "var(--muted)", 
-                    borderColor: "var(--card-border)", 
+                    background: "var(--background)", 
+                    border: "1.5px solid var(--card-border)", 
                     color: "var(--foreground)" 
                   }}
                   placeholder="Например: 18 000 000"
@@ -607,7 +735,13 @@ export default function CoworkingPlacesPage() {
                       }));
                     }
                   }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
                   onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
                     if (e.target.value && !isNaN(parseInt(e.target.value.replace(/\s/g, ""), 10))) {
                       const num = parseInt(e.target.value.replace(/\s/g, ""), 10);
                       setForm((prev) => ({
@@ -621,14 +755,8 @@ export default function CoworkingPlacesPage() {
             </div>
           </div>
 
-          <div className="flex gap-3 justify-end pt-2 border-t" style={{ borderColor: "var(--card-border)" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--card-border)" }}>
             <button 
-              className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all"
-              style={{ 
-                border: "1px solid var(--card-border)",
-                background: "transparent",
-                color: "var(--foreground)"
-              }}
               onClick={() => {
                 if (!creating) {
                   setOpenAdd(false);
@@ -646,17 +774,64 @@ export default function CoworkingPlacesPage() {
                 }
               }} 
               disabled={creating}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "1px solid var(--card-border)",
+                background: "var(--muted)",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: creating ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                opacity: creating ? 0.5 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!creating) {
+                  e.currentTarget.style.background = "var(--panel)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!creating) {
+                  e.currentTarget.style.background = "var(--muted)";
+                }
+              }}
             >
               Отмена
             </button>
             <button 
-              className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-all disabled:opacity-50"
-              style={{ 
-                background: creating ? "#9ca3af" : "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
-                boxShadow: creating ? "none" : "0 4px 12px rgba(99, 102, 241, 0.25)"
-              }}
               onClick={handleCreate} 
               disabled={creating || !form.name.trim()}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "none",
+                background: creating || !form.name.trim()
+                  ? "var(--muted)" 
+                  : "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                color: creating || !form.name.trim()
+                  ? "var(--muted-foreground)" 
+                  : "#fff",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: creating || !form.name.trim() ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                boxShadow: creating || !form.name.trim()
+                  ? "none" 
+                  : "0 4px 12px rgba(99, 102, 241, 0.25)",
+              }}
+              onMouseEnter={(e) => {
+                if (!creating && form.name.trim()) {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 6px 16px rgba(99, 102, 241, 0.3)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!creating && form.name.trim()) {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.25)";
+                }
+              }}
             >
               {creating ? (editingId ? "Обновляю..." : "Сохраняю...") : (editingId ? "Обновить" : "Сохранить")}
             </button>

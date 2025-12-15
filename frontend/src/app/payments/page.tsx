@@ -1525,15 +1525,35 @@ export default function PaymentsPage() {
       ) : null}
 
       <Modal open={isCreateModalOpen} onClose={closeCreateModal} title="Добавление услуги">
-        <div className="body-services__form">
-          <div className="body-services__form-grid">
-            <label className="body-services__form-field">
-              <span>Категория</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem" }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Категория</span>
               <select
                 value={newServiceData.categoryId}
                 onChange={(event) =>
                   setNewServiceData((prev) => ({ ...prev, categoryId: Number(event.target.value) }))
                 }
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                  cursor: "pointer",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               >
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
@@ -1541,9 +1561,9 @@ export default function PaymentsPage() {
                   </option>
                 ))}
               </select>
-              </label>
-            <label className="body-services__form-field">
-              <span>Название услуги</span>
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Название услуги</span>
               <input
                 type="text"
                 value={newServiceData.name}
@@ -1551,10 +1571,29 @@ export default function PaymentsPage() {
                   setNewServiceData((prev) => ({ ...prev, name: event.target.value }))
                 }
                 placeholder="Например, Stretching · разовое занятие"
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
-              </label>
-            <label className="body-services__form-field">
-              <span>Стоимость (сум)</span>
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Стоимость (сум)</span>
               <input
                 type="text"
                 value={newServiceData.price}
@@ -1566,10 +1605,29 @@ export default function PaymentsPage() {
                   }
                 }}
                 placeholder="200 000"
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
-            <label className="body-services__form-field">
-              <span>Длительность</span>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Длительность</span>
               <input
                 type="text"
                 value={newServiceData.duration}
@@ -1577,10 +1635,29 @@ export default function PaymentsPage() {
                   setNewServiceData((prev) => ({ ...prev, duration: event.target.value }))
                 }
                 placeholder="12 занятий"
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
-              </label>
-            <label className="body-services__form-field" style={{ gridColumn: "1 / -1" }}>
-              <span>Описание</span>
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem", gridColumn: "1 / -1" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Описание</span>
               <textarea
                 value={newServiceData.description}
                 onChange={(event) =>
@@ -1588,22 +1665,89 @@ export default function PaymentsPage() {
                 }
                 placeholder="Кратко опишите услугу"
                 rows={3}
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                  resize: "vertical",
+                  minHeight: "100px",
+                  lineHeight: "1.5",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
           </div>
-          <div className="body-services__form-actions">
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--card-border)" }}>
             <button
               type="button"
-              className="body-services__action-btn"
               onClick={closeCreateModal}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "1px solid var(--card-border)",
+                background: "var(--muted)",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--panel)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--muted)";
+              }}
             >
               Отмена
             </button>
             <button
               type="button"
-              className="body-services__action-btn body-services__action-btn--primary"
               onClick={handleCreateService}
               disabled={!newServiceData.name.trim() || !newServiceData.price.trim()}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "none",
+                background: !newServiceData.name.trim() || !newServiceData.price.trim() 
+                  ? "var(--muted)" 
+                  : "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                color: !newServiceData.name.trim() || !newServiceData.price.trim() 
+                  ? "var(--muted-foreground)" 
+                  : "#fff",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: !newServiceData.name.trim() || !newServiceData.price.trim() ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                boxShadow: !newServiceData.name.trim() || !newServiceData.price.trim() 
+                  ? "none" 
+                  : "0 4px 12px rgba(99, 102, 241, 0.25)",
+              }}
+              onMouseEnter={(e) => {
+                if (newServiceData.name.trim() && newServiceData.price.trim()) {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 6px 16px rgba(99, 102, 241, 0.3)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (newServiceData.name.trim() && newServiceData.price.trim()) {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.25)";
+                }
+              }}
             >
               Сохранить услугу
             </button>
@@ -1612,15 +1756,35 @@ export default function PaymentsPage() {
       </Modal>
 
       <Modal open={isEditModalOpen} onClose={closeEditModal} title="Редактирование услуги">
-        <div className="body-services__form">
-          <div className="body-services__form-grid">
-            <label className="body-services__form-field">
-              <span>Категория</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem" }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Категория</span>
               <select
                 value={newServiceData.categoryId}
                 onChange={(event) =>
                   setNewServiceData((prev) => ({ ...prev, categoryId: Number(event.target.value) }))
                 }
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                  cursor: "pointer",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               >
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
@@ -1629,8 +1793,8 @@ export default function PaymentsPage() {
                 ))}
               </select>
             </label>
-            <label className="body-services__form-field">
-              <span>Название услуги</span>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Название услуги</span>
               <input
                 type="text"
                 value={newServiceData.name}
@@ -1638,10 +1802,29 @@ export default function PaymentsPage() {
                   setNewServiceData((prev) => ({ ...prev, name: event.target.value }))
                 }
                 placeholder="Например, Stretching · разовое занятие"
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
-            <label className="body-services__form-field">
-              <span>Стоимость (сум)</span>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Стоимость (сум)</span>
               <input
                 type="text"
                 value={newServiceData.price}
@@ -1653,10 +1836,29 @@ export default function PaymentsPage() {
                   }
                 }}
                 placeholder="200 000"
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
-            <label className="body-services__form-field">
-              <span>Длительность</span>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Длительность</span>
               <input
                 type="text"
                 value={newServiceData.duration}
@@ -1664,10 +1866,29 @@ export default function PaymentsPage() {
                   setNewServiceData((prev) => ({ ...prev, duration: event.target.value }))
                 }
                 placeholder="12 занятий"
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
-            <label className="body-services__form-field" style={{ gridColumn: "1 / -1" }}>
-              <span>Описание</span>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem", gridColumn: "1 / -1" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Описание</span>
               <textarea
                 value={newServiceData.description}
                 onChange={(event) =>
@@ -1675,22 +1896,89 @@ export default function PaymentsPage() {
                 }
                 placeholder="Кратко опишите услугу"
                 rows={3}
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                  resize: "vertical",
+                  minHeight: "100px",
+                  lineHeight: "1.5",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
-            </div>
-          <div className="body-services__form-actions">
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--card-border)" }}>
             <button
               type="button"
-              className="body-services__action-btn"
               onClick={closeEditModal}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "1px solid var(--card-border)",
+                background: "var(--muted)",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--panel)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--muted)";
+              }}
             >
               Отмена
             </button>
             <button
               type="button"
-              className="body-services__action-btn body-services__action-btn--primary"
               onClick={handleUpdateService}
               disabled={!newServiceData.name.trim() || !newServiceData.price.trim()}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "none",
+                background: !newServiceData.name.trim() || !newServiceData.price.trim() 
+                  ? "var(--muted)" 
+                  : "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                color: !newServiceData.name.trim() || !newServiceData.price.trim() 
+                  ? "var(--muted-foreground)" 
+                  : "#fff",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: !newServiceData.name.trim() || !newServiceData.price.trim() ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                boxShadow: !newServiceData.name.trim() || !newServiceData.price.trim() 
+                  ? "none" 
+                  : "0 4px 12px rgba(99, 102, 241, 0.25)",
+              }}
+              onMouseEnter={(e) => {
+                if (newServiceData.name.trim() && newServiceData.price.trim()) {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 6px 16px rgba(99, 102, 241, 0.3)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (newServiceData.name.trim() && newServiceData.price.trim()) {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.25)";
+                }
+              }}
             >
               Сохранить изменения
             </button>
@@ -1740,10 +2028,10 @@ export default function PaymentsPage() {
         }}
         title={editingCategory ? "Редактировать категорию" : "Добавить категорию"}
       >
-        <div className="body-services__form">
-          <div className="body-services__form-grid">
-            <label className="body-services__form-field" style={{ gridColumn: "1 / -1" }}>
-              <span>Название категории</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem" }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem", gridColumn: "1 / -1" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Название категории</span>
               <input
                 type="text"
                 value={categoryForm.name}
@@ -1752,10 +2040,29 @@ export default function PaymentsPage() {
                 }
                 placeholder="Например: Коворкинг"
                 required
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
-            <label className="body-services__form-field" style={{ gridColumn: "1 / -1" }}>
-              <span>Описание</span>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem", gridColumn: "1 / -1" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Описание</span>
               <textarea
                 value={categoryForm.description}
                 onChange={(event) =>
@@ -1763,26 +2070,96 @@ export default function PaymentsPage() {
                 }
                 placeholder="Краткое описание категории"
                 rows={3}
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                  resize: "vertical",
+                  minHeight: "100px",
+                  lineHeight: "1.5",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
           </div>
-          <div className="body-services__form-actions">
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--card-border)" }}>
             <button
               type="button"
-              className="body-services__action-btn"
               onClick={() => {
                 setIsCategoryModalOpen(false);
                 setEditingCategory(null);
                 setCategoryForm({ name: "", description: "", accent: "#6366F1" });
+              }}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "1px solid var(--card-border)",
+                background: "var(--muted)",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--panel)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "var(--muted)";
               }}
             >
               Отмена
             </button>
             <button
               type="button"
-              className="body-services__action-btn body-services__action-btn--primary"
               onClick={handleCategorySubmit}
               disabled={isCategorySubmitting || !categoryForm.name.trim()}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "none",
+                background: isCategorySubmitting || !categoryForm.name.trim()
+                  ? "var(--muted)" 
+                  : "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                color: isCategorySubmitting || !categoryForm.name.trim()
+                  ? "var(--muted-foreground)" 
+                  : "#fff",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: isCategorySubmitting || !categoryForm.name.trim() ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                boxShadow: isCategorySubmitting || !categoryForm.name.trim()
+                  ? "none" 
+                  : "0 4px 12px rgba(99, 102, 241, 0.25)",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+              onMouseEnter={(e) => {
+                if (!isCategorySubmitting && categoryForm.name.trim()) {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 6px 16px rgba(99, 102, 241, 0.3)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isCategorySubmitting && categoryForm.name.trim()) {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.25)";
+                }
+              }}
             >
               {isCategorySubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingCategory ? "Сохранить" : "Добавить"}

@@ -689,22 +689,61 @@ export default function BodyServicesPage() {
         onClose={() => setIsModalOpen(false)}
         title={editingId ? "Редактировать услугу" : "Добавить услугу"}
       >
-        <div className="body-services__form">
-          <div className="body-services__form-grid">
-            <label className="body-services__form-field">
-              <span>Название</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem" }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Название</span>
               <input
                 type="text"
                 value={form.name}
                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="Например, Йога базовая"
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
-            <label className="body-services__form-field">
-              <span>Категория</span>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Категория</span>
               <select
                 value={form.category}
                 onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                  cursor: "pointer",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               >
                 <option value="">Выберите категорию</option>
                 {categoryOptions.map((opt) => (
@@ -714,19 +753,39 @@ export default function BodyServicesPage() {
                 ))}
               </select>
             </label>
-            <label className="body-services__form-field">
-              <span>Направление</span>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Направление</span>
               <select
                 value={form.direction || "Body"}
                 onChange={(e) => setForm((prev) => ({ ...prev, direction: e.target.value as "Body" | "Coworking" | "Coffee" }))}
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                  cursor: "pointer",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               >
                 <option value="Body">Body&mind</option>
                 <option value="Coworking">Coworking</option>
                 <option value="Coffee">Детская</option>
               </select>
             </label>
-            <label className="body-services__form-field">
-              <span>Длительность</span>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Длительность</span>
               <input
                 type="text"
                 value={form.duration_minutes || ""}
@@ -734,10 +793,29 @@ export default function BodyServicesPage() {
                   setForm((prev) => ({ ...prev, duration_minutes: e.target.value }));
                 }}
                 placeholder="Например: 60 мин, 1 месяц, 30 дней"
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
-            <label className="body-services__form-field">
-              <span>Стоимость (сум)</span>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Стоимость (сум)</span>
               <input
                 type="text"
                 value={form.priceDisplay}
@@ -763,32 +841,126 @@ export default function BodyServicesPage() {
                   }
                 }}
                 placeholder="Например: 100 000"
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
           </div>
-          <label className="body-services__form-field">
-            <span>Описание</span>
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Описание</span>
             <textarea
               value={form.description ?? ""}
               onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
               placeholder="Добавьте краткое описание услуги"
               rows={3}
+              style={{
+                width: "100%",
+                borderRadius: "12px",
+                border: "1.5px solid var(--card-border)",
+                background: "var(--background)",
+                color: "var(--foreground)",
+                padding: "0.75rem 1rem",
+                fontSize: "0.875rem",
+                transition: "all 0.2s ease",
+                fontFamily: "inherit",
+                resize: "vertical",
+                minHeight: "100px",
+                lineHeight: "1.5",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "var(--card-border)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
             />
           </label>
-          <div className="body-services__form-actions">
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--card-border)" }}>
             <button
               type="button"
-              className="body-services__action-btn"
               onClick={() => setIsModalOpen(false)}
               disabled={isSubmitting}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "1px solid var(--card-border)",
+                background: "var(--muted)",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: isSubmitting ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                opacity: isSubmitting ? 0.5 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!isSubmitting) {
+                  e.currentTarget.style.background = "var(--panel)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSubmitting) {
+                  e.currentTarget.style.background = "var(--muted)";
+                }
+              }}
             >
               Отмена
             </button>
             <button
               type="button"
-              className="body-services__action-btn body-services__action-btn--primary"
               onClick={handleSubmit}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !form.name.trim() || !form.category.trim()}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "none",
+                background: isSubmitting || !form.name.trim() || !form.category.trim()
+                  ? "var(--muted)" 
+                  : "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                color: isSubmitting || !form.name.trim() || !form.category.trim()
+                  ? "var(--muted-foreground)" 
+                  : "#fff",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: isSubmitting || !form.name.trim() || !form.category.trim() ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                boxShadow: isSubmitting || !form.name.trim() || !form.category.trim()
+                  ? "none" 
+                  : "0 4px 12px rgba(99, 102, 241, 0.25)",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+              onMouseEnter={(e) => {
+                if (!isSubmitting && form.name.trim() && form.category.trim()) {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 6px 16px rgba(99, 102, 241, 0.3)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSubmitting && form.name.trim() && form.category.trim()) {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.25)";
+                }
+              }}
             >
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingId ? "Сохранить" : "Добавить"}
@@ -802,32 +974,104 @@ export default function BodyServicesPage() {
         onClose={() => setIsCategoryModalOpen(false)}
         title={editingCategoryId ? "Редактировать категорию" : "Добавить категорию"}
       >
-        <div className="body-services__form">
-          <div className="body-services__form-grid">
-            <label className="body-services__form-field">
-              <span>Название категории</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem" }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem", gridColumn: "1 / -1" }}>
+              <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Название категории</span>
               <input
                 type="text"
                 value={categoryForm.name}
                 onChange={(e) => setCategoryForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="Например, Yoga"
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.75rem 1rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </label>
           </div>
-          <div className="body-services__form-actions">
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--card-border)" }}>
             <button
               type="button"
-              className="body-services__action-btn"
               onClick={() => setIsCategoryModalOpen(false)}
               disabled={isCategorySubmitting}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "1px solid var(--card-border)",
+                background: "var(--muted)",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: isCategorySubmitting ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                opacity: isCategorySubmitting ? 0.5 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!isCategorySubmitting) {
+                  e.currentTarget.style.background = "var(--panel)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isCategorySubmitting) {
+                  e.currentTarget.style.background = "var(--muted)";
+                }
+              }}
             >
               Отмена
             </button>
             <button
               type="button"
-              className="body-services__action-btn body-services__action-btn--primary"
               onClick={handleCategorySubmit}
-              disabled={isCategorySubmitting}
+              disabled={isCategorySubmitting || !categoryForm.name.trim()}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "12px",
+                border: "none",
+                background: isCategorySubmitting || !categoryForm.name.trim()
+                  ? "var(--muted)" 
+                  : "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                color: isCategorySubmitting || !categoryForm.name.trim()
+                  ? "var(--muted-foreground)" 
+                  : "#fff",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: isCategorySubmitting || !categoryForm.name.trim() ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                boxShadow: isCategorySubmitting || !categoryForm.name.trim()
+                  ? "none" 
+                  : "0 4px 12px rgba(99, 102, 241, 0.25)",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+              onMouseEnter={(e) => {
+                if (!isCategorySubmitting && categoryForm.name.trim()) {
+                  e.currentTarget.style.transform = "translateY(-1px)";
+                  e.currentTarget.style.boxShadow = "0 6px 16px rgba(99, 102, 241, 0.3)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isCategorySubmitting && categoryForm.name.trim()) {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.25)";
+                }
+              }}
             >
               {isCategorySubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               {editingCategoryId ? "Сохранить" : "Добавить"}

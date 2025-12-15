@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Card from "@/components/Card";
 import Link from "next/link";
 import Modal from "@/components/Modal";
-import { CalendarCheck, Search, User, Plus, Filter, Trash2, AlertTriangle } from "lucide-react";
+import { CalendarCheck, Search, User, Plus, Filter, Trash2, AlertTriangle, Phone } from "lucide-react";
 import { fetchClientsFromApi, createClient, deleteClient } from "@/lib/api";
 import { toast } from "@pheralb/toast";
 
@@ -206,7 +206,6 @@ export default function BodyClientsPage() {
       setNewClientContract("");
       setNewClientSubscriptionNumber("");
       setNewClientBirthDate("");
-      setNewClientSubscriptionValidTill("");
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Не удалось создать клиента";
       setError(errorMessage);
@@ -241,33 +240,123 @@ export default function BodyClientsPage() {
     }
   };
 
+  // Статистика
+  const stats = useMemo(() => {
+    const total = filteredClients.length;
+    const active = filteredClients.filter((c) => c.status === "Активный").length;
+    const newClients = filteredClients.filter((c) => c.status === "Новый").length;
+    const left = filteredClients.filter((c) => c.status === "Ушедший").length;
+    
+    return {
+      total,
+      active,
+      newClients,
+      left,
+    };
+  }, [filteredClients]);
+
   return (
-    <div className="body-clients">
-      <div className="rounded-2xl bg-[var(--panel)] p-4 mb-4">
-        <div className="flex flex-col gap-3">
+    <div className="body-clients" style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Всего клиентов
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.total}</p>
+          </div>
+        </Card>
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Активные
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.active}</p>
+          </div>
+        </Card>
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Новые
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.newClients}</p>
+          </div>
+        </Card>
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Ушедшие
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{stats.left}</p>
+          </div>
+        </Card>
+      </div>
+
+      {/* Search and Filters */}
+      <Card style={{ padding: "1.25rem" }}>
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="body-clients__search">
-              <Search className="body-clients__search-icon" />
+            <div style={{ position: "relative", width: "100%", maxWidth: "400px" }}>
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: "var(--muted-foreground)" }} />
               <input
                 type="text"
                 placeholder="Поиск по имени, телефону, абонементу"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "0.625rem 0.875rem 0.625rem 2.5rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--background)",
+                  fontSize: "0.875rem",
+                  color: "var(--foreground)",
+                  outline: "none",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </div>
             <button
               type="button"
-              className="payments-add-btn"
               onClick={() => setIsAddClientOpen(true)}
+              style={{
+                padding: "0.625rem 1rem",
+                borderRadius: "8px",
+                border: "1px solid transparent",
+                background: "var(--foreground)",
+                color: "var(--background)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                whiteSpace: "nowrap",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = "0.9";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = "1";
+              }}
             >
               <Plus className="h-4 w-4" />
               Добавить клиента
             </button>
           </div>
 
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
                 <Filter className="h-4 w-4" /> Направления
               </span>
               <div className="flex gap-2 flex-wrap">
@@ -275,12 +364,30 @@ export default function BodyClientsPage() {
                   <button
                     key={dir}
                     type="button"
-                    className={`px-3 py-1 rounded-full border text-xs font-medium transition ${
-                      directionFilter === dir
-                        ? "bg-[var(--foreground)] text-white border-transparent shadow-sm"
-                        : "bg-transparent text-[var(--foreground)] border-[var(--card-border)] hover:border-[var(--foreground)]/50"
-                    }`}
                     onClick={() => setDirectionFilter(directionFilter === dir ? null : dir)}
+                    style={{
+                      padding: "0.5rem 0.875rem",
+                      borderRadius: "999px",
+                      border: `1px solid ${directionFilter === dir ? "transparent" : "var(--card-border)"}`,
+                      background: directionFilter === dir ? "var(--foreground)" : "transparent",
+                      color: directionFilter === dir ? "var(--background)" : "var(--foreground)",
+                      fontSize: "0.75rem",
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (directionFilter !== dir) {
+                        e.currentTarget.style.borderColor = "var(--foreground)";
+                        e.currentTarget.style.opacity = "0.7";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (directionFilter !== dir) {
+                        e.currentTarget.style.borderColor = "var(--card-border)";
+                        e.currentTarget.style.opacity = "1";
+                      }
+                    }}
                   >
                     {directionLabels[dir]}
                   </button>
@@ -289,7 +396,7 @@ export default function BodyClientsPage() {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)" }}>
                 Статус
               </span>
               <div className="flex gap-2 flex-wrap">
@@ -297,12 +404,30 @@ export default function BodyClientsPage() {
                   <button
                     key={st}
                     type="button"
-                    className={`px-3 py-1 rounded-full border text-xs font-medium transition ${
-                      statusFilter === st
-                        ? "bg-[var(--foreground)] text-white border-transparent shadow-sm"
-                        : "bg-transparent text-[var(--foreground)] border-[var(--card-border)] hover:border-[var(--foreground)]/50"
-                    }`}
                     onClick={() => setStatusFilter(statusFilter === st ? null : st)}
+                    style={{
+                      padding: "0.5rem 0.875rem",
+                      borderRadius: "999px",
+                      border: `1px solid ${statusFilter === st ? "transparent" : "var(--card-border)"}`,
+                      background: statusFilter === st ? "var(--foreground)" : "transparent",
+                      color: statusFilter === st ? "var(--background)" : "var(--foreground)",
+                      fontSize: "0.75rem",
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (statusFilter !== st) {
+                        e.currentTarget.style.borderColor = "var(--foreground)";
+                        e.currentTarget.style.opacity = "0.7";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (statusFilter !== st) {
+                        e.currentTarget.style.borderColor = "var(--card-border)";
+                        e.currentTarget.style.opacity = "1";
+                      }
+                    }}
                   >
                     {st}
                   </button>
@@ -311,7 +436,7 @@ export default function BodyClientsPage() {
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {error && (
         <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -425,81 +550,258 @@ export default function BodyClientsPage() {
         onClose={() => setIsAddClientOpen(false)}
         title="Добавить клиента"
       >
-        <div className="body-clients__add-modal">
-          <div className="body-clients__add-modal-grid">
-            <div className="body-clients__add-field">
-              <label>Имя клиента</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Имя клиента *
+                </label>
+                <div style={{ position: "relative" }}>
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
               <input
                 type="text"
                 placeholder="Например, Анна Смирнова"
                 value={newClientName}
                 onChange={(event) => setNewClientName(event.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "0.625rem 0.875rem 0.625rem 2.5rem",
+                      borderRadius: "8px",
+                      border: "1px solid var(--card-border)",
+                      background: "var(--background)",
+                      fontSize: "0.875rem",
+                      color: "var(--foreground)",
+                      outline: "none",
+                      transition: "all 0.2s ease",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "var(--card-border)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
               />
+                </div>
               </div>
-            <div className="body-clients__add-field">
-              <label>Телефон</label>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Телефон *
+                </label>
+                <div style={{ position: "relative" }}>
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
               <input
                 type="tel"
                 placeholder="+998 90 000 00 00"
                 value={newClientPhone}
                 onChange={(event) => setNewClientPhone(event.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "0.625rem 0.875rem 0.625rem 2.5rem",
+                      borderRadius: "8px",
+                      border: "1px solid var(--card-border)",
+                      background: "var(--background)",
+                      fontSize: "0.875rem",
+                      color: "var(--foreground)",
+                      outline: "none",
+                      transition: "all 0.2s ease",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "var(--card-border)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
               />
             </div>
-            <div className="body-clients__add-field">
-              <label>Номер договора</label>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Номер договора
+                </label>
               <input
                 type="text"
                 placeholder="Например, D-2024-015"
                 value={newClientContract}
                 onChange={(event) => setNewClientContract(event.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "0.625rem 0.875rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--background)",
+                    fontSize: "0.875rem",
+                    color: "var(--foreground)",
+                    outline: "none",
+                    transition: "all 0.2s ease",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
               />
             </div>
-            <div className="body-clients__add-field">
-              <label>Номер абонемента</label>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Номер абонемента
+                </label>
               <input
                 type="text"
                 placeholder="Например, S-110045"
                 value={newClientSubscriptionNumber}
                 onChange={(event) => setNewClientSubscriptionNumber(event.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "0.625rem 0.875rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--background)",
+                    fontSize: "0.875rem",
+                    color: "var(--foreground)",
+                    outline: "none",
+                    transition: "all 0.2s ease",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
               />
             </div>
-            <div className="body-clients__add-field">
-              <label>Дата рождения</label>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Дата рождения
+                </label>
               <input
                 type="date"
                 value={newClientBirthDate}
                 onChange={(event) => setNewClientBirthDate(event.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "0.625rem 0.875rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--background)",
+                    fontSize: "0.875rem",
+                    color: "var(--foreground)",
+                    outline: "none",
+                    transition: "all 0.2s ease",
+                    cursor: "pointer",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
               />
             </div>
-            <div className="body-clients__add-field">
-              <label>Направление</label>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Направление
+                </label>
               <select
                 value={newClientDirection}
                 onChange={(event) => setNewClientDirection(event.target.value as ClientDirection)}
-                className="body-clients__add-select"
+                  style={{
+                    width: "100%",
+                    padding: "0.625rem 0.875rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--background)",
+                    fontSize: "0.875rem",
+                    color: "var(--foreground)",
+                    outline: "none",
+                    transition: "all 0.2s ease",
+                    cursor: "pointer",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
               >
                 <option value="Body">Body&mind</option>
                 <option value="Coworking">Коворкинг</option>
                 <option value="Pilates Reformer">Pilates Reformer</option>
                 <option value="Coffee">Детская</option>
               </select>
+              </div>
             </div>
           </div>
 
-          <div className="body-clients__add-actions">
+          <div style={{ display: "flex", gap: "0.75rem", paddingTop: "1.5rem", borderTop: "1px solid var(--card-border)", justifyContent: "flex-end" }}>
             <button
               type="button"
-              className="btn-outline body-clients__add-actions-secondary"
               onClick={() => setIsAddClientOpen(false)}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
+                border: "1px solid var(--card-border)",
+                background: "transparent",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "var(--muted)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "transparent";
+              }}
             >
               Отмена
               </button>
             <button
               type="button"
-              className="btn-outline body-clients__add-actions-primary"
               onClick={handleAddClient}
+              disabled={loading || !newClientName.trim() || !newClientPhone.trim()}
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
+                border: "1px solid transparent",
+                background: loading || !newClientName.trim() || !newClientPhone.trim()
+                  ? "#9ca3af"
+                  : "var(--foreground)",
+                color: loading || !newClientName.trim() || !newClientPhone.trim()
+                  ? "#ffffff"
+                  : "var(--background)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: loading || !newClientName.trim() || !newClientPhone.trim() ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                opacity: loading || !newClientName.trim() || !newClientPhone.trim() ? 0.5 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!loading && newClientName.trim() && newClientPhone.trim()) {
+                  e.currentTarget.style.opacity = "0.9";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!loading && newClientName.trim() && newClientPhone.trim()) {
+                  e.currentTarget.style.opacity = "1";
+                }
+              }}
             >
-              Сохранить
+              {loading ? "Сохранение..." : "Сохранить"}
               </button>
             </div>
         </div>

@@ -18,6 +18,7 @@ import {
   CreditCard,
   Calendar,
   DollarSign,
+  User,
 } from "lucide-react";
 import { fetchClientByIdFromApi, fetchPayments, Payment, updateClient, addClientVisit, removeClientVisit, deletePayment } from "@/lib/api";
 import Modal from "@/components/Modal";
@@ -502,30 +503,97 @@ export default function BodyClientDetailPage({ params }: PageProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      {/* Header with back button and edit */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Link href="/body/clients" className="inline-flex items-center gap-2 text-sm hover:underline" style={{ color: 'var(--foreground)' }}>
+          <Link 
+            href="/body/clients" 
+            className="inline-flex items-center gap-2 text-sm transition"
+            style={{ 
+              color: 'var(--foreground)',
+              padding: "0.5rem 0.75rem",
+              borderRadius: "8px",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "var(--muted)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
+            }}
+          >
             <ArrowLeft className="h-4 w-4" /> Назад к клиентам
           </Link>
-          <span className="text-xs px-2 py-1 rounded-full border border-[var(--card-border)] bg-[var(--muted)] text-[var(--muted-foreground)]">
-            Клиент ID: {client.id}
-          </span>
         </div>
         <button
           onClick={handleOpenEdit}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] hover:bg-[var(--muted)] transition text-sm font-medium"
-          style={{ color: 'var(--foreground)' }}
+          style={{
+            padding: "0.625rem 1rem",
+            borderRadius: "8px",
+            border: "1px solid var(--card-border)",
+            background: "transparent",
+            color: "var(--foreground)",
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "var(--muted)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+          }}
         >
           <Edit className="h-4 w-4" />
           Редактировать
         </button>
       </div>
 
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Всего визитов
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{usedVisits}</p>
+          </div>
+        </Card>
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Оплачено визитов
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{paidVisits || totalPaidVisits || 0}</p>
+          </div>
+        </Card>
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Осталось
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: (paidVisits - usedVisits) <= 0 ? '#EF4444' : "var(--foreground)" }}>
+              {Math.max(0, paidVisits - usedVisits)}
+            </p>
+          </div>
+        </Card>
+        <Card style={{ padding: "1.25rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              Всего оплат
+            </div>
+            <p className="text-2xl md:text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>{totalPayments}</p>
+          </div>
+        </Card>
+      </div>
+
       {/* Заголовок с информацией о клиенте */}
-      <div className="relative overflow-hidden" style={{ borderRadius: 30, background: "var(--panel)", border: "1px solid var(--card-border)" }}>
-        <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${statusColor}15, transparent)` }} />
-        <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 px-6 py-4">
+      <Card style={{ padding: "1.5rem" }}>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="flex items-center gap-4">
             <div 
               className="h-16 w-16 rounded-full flex items-center justify-center shrink-0 text-lg font-semibold"
@@ -553,7 +621,7 @@ export default function BodyClientDetailPage({ params }: PageProps) {
           </div>
 
           <div className="flex flex-col gap-2 text-sm lg:items-end" style={{ color: 'var(--muted-foreground)' }}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <span className="inline-flex items-center gap-2"><Phone className="h-4 w-4" />{client.phone}</span>
               {client.instagram && <span className="inline-flex items-center gap-2"><Mail className="h-4 w-4" />{client.instagram}</span>}
             </div>
@@ -567,45 +635,93 @@ export default function BodyClientDetailPage({ params }: PageProps) {
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2" style={{ borderRadius: 24 }}>
-          <div className="flex items-center justify-between mb-4">
+        <Card className="lg:col-span-2" style={{ padding: "1.5rem" }}>
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Абонемент</h2>
               <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Номер договора, абонемента, срок</p>
             </div>
-            <WalletCards className="h-5 w-5" />
+            <div style={{ 
+              padding: "0.75rem", 
+              borderRadius: "12px", 
+              background: "var(--muted)", 
+              border: "1px solid var(--card-border)" 
+            }}>
+              <WalletCards className="h-5 w-5" style={{ color: "var(--foreground)" }} />
+            </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-              <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Номер договора</div>
-              <div className="font-medium" style={{ color: 'var(--foreground)' }}>{client.contractNumber || '—'}</div>
+            <div style={{ 
+              padding: "1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
+                Номер договора
             </div>
-            <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-              <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Номер абонемента</div>
-              <div className="font-medium" style={{ color: 'var(--foreground)' }}>{client.subscriptionNumber || '—'}</div>
+              <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)" }}>
+                {client.contractNumber || '—'}
             </div>
-            <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-              <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Срок абонемента</div>
-              <div className="font-medium" style={{ color: 'var(--foreground)' }}>{sub?.validTill ? new Date(sub.validTill).toLocaleDateString('ru-RU') : '—'}</div>
             </div>
-            <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-              <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Активация</div>
-              <div className="font-medium" style={{ color: 'var(--foreground)' }}>{client.activationDate ? new Date(client.activationDate).toLocaleDateString('ru-RU') : 'с первого визита'}</div>
+            <div style={{ 
+              padding: "1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
+                Номер абонемента
             </div>
-            <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-              <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Дата рождения</div>
-              <div className="font-medium" style={{ color: 'var(--foreground)' }}>
+              <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)" }}>
+                {client.subscriptionNumber || '—'}
+              </div>
+            </div>
+            <div style={{ 
+              padding: "1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
+                Срок абонемента
+              </div>
+              <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)" }}>
+                {sub?.validTill ? new Date(sub.validTill).toLocaleDateString('ru-RU') : '—'}
+              </div>
+            </div>
+            <div style={{ 
+              padding: "1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
+                Активация
+              </div>
+              <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)" }}>
+                {client.activationDate ? new Date(client.activationDate).toLocaleDateString('ru-RU') : 'с первого визита'}
+              </div>
+            </div>
+            <div style={{ 
+              padding: "1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
+                Дата рождения
+              </div>
+              <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)" }}>
                 {client.birthDate ? (() => {
                   try {
-                    // Пытаемся распарсить дату
                     const date = new Date(client.birthDate);
                     if (!isNaN(date.getTime())) {
                       return date.toLocaleDateString('ru-RU');
                     }
-                    // Если не удалось распарсить, показываем как есть
                     return client.birthDate;
                   } catch {
                     return client.birthDate;
@@ -613,9 +729,16 @@ export default function BodyClientDetailPage({ params }: PageProps) {
                 })() : '—'}
               </div>
             </div>
-            <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-              <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Направление</div>
-              <div className="font-medium" style={{ color: 'var(--foreground)' }}>
+            <div style={{ 
+              padding: "1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
+                Направление
+              </div>
+              <div style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)" }}>
                 {primaryDirection}
                 {directionsFromPayments.length > 1 && (
                   <span className="text-xs ml-2" style={{ color: 'var(--muted-foreground)' }}>
@@ -652,79 +775,135 @@ export default function BodyClientDetailPage({ params }: PageProps) {
           )}
         </Card>
 
-        <Card style={{ borderRadius: 24 }}>
-          <div className="flex items-center justify-between mb-4">
+        <Card style={{ padding: "1.5rem" }}>
+          <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Посещения</h2>
               <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Последний визит, активность</p>
             </div>
-            <Activity className="h-5 w-5" />
+            <div style={{ 
+              padding: "0.75rem", 
+              borderRadius: "12px", 
+              background: "var(--muted)", 
+              border: "1px solid var(--card-border)" 
+            }}>
+              <Activity className="h-5 w-5" style={{ color: "var(--foreground)" }} />
           </div>
-          <div className="space-y-3 text-sm">
-            <div className="flex items-center justify-between rounded-xl border border-[var(--card-border)] bg-[var(--muted)] px-3 py-2">
-              <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Последний визит</span>
-              <span className="font-medium" style={{ color: 'var(--foreground)' }}>{lastVisit}</span>
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-[var(--card-border)] bg-[var(--muted)] px-3 py-2">
-              <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Всего визитов</span>
-              <span className="font-medium" style={{ color: 'var(--foreground)' }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "space-between", 
+              padding: "0.875rem 1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Последний визит
+              </span>
+              <span style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)" }}>
+                {lastVisit}
+              </span>
+            </div>
+            <div style={{ 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "space-between", 
+              padding: "0.875rem 1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Всего визитов
+              </span>
+              <span style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--foreground)" }}>
                 {usedVisits}
               </span>
             </div>
             {/* Информация об абонементе - показываем всегда */}
-            <div className="rounded-xl border border-[var(--card-border)] bg-[var(--background)] p-3">
-              <div className="text-xs font-semibold mb-2" style={{ color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <div style={{ 
+              padding: "1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--background)" 
+            }}>
+              <div style={{ 
+                fontSize: "0.75rem", 
+                fontWeight: 500, 
+                color: "var(--muted-foreground)", 
+                textTransform: "uppercase", 
+                letterSpacing: "0.05em", 
+                marginBottom: "1rem" 
+              }}>
                 Абонемент
               </div>
-              <div className="space-y-1.5">
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
                 {activeSubscription ? (
                   <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Абонемент</span>
-                      <span className="font-medium text-sm" style={{ color: 'var(--foreground)' }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>Абонемент</span>
+                      <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--foreground)" }}>
                         {activeSubscription.service_name || 'Абонемент'}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Оплачено визитов</span>
-                      <span className="font-medium text-sm" style={{ color: 'var(--foreground)' }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>Оплачено визитов</span>
+                      <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--foreground)" }}>
                         {paidVisits}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Использовано</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm" style={{ color: usedVisits >= paidVisits ? '#EF4444' : 'var(--foreground)' }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>Использовано</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{ fontSize: "0.875rem", fontWeight: 600, color: usedVisits >= paidVisits ? '#EF4444' : 'var(--foreground)' }}>
                           {usedVisits} / {paidVisits}
                         </span>
                         <button
                           onClick={handleOpenEditUsedVisits}
-                          className="p-1 rounded hover:bg-[var(--muted)] transition"
-                          style={{ color: 'var(--muted-foreground)' }}
+                          style={{
+                            padding: "0.25rem",
+                            borderRadius: "6px",
+                            border: "none",
+                            background: "transparent",
+                            color: "var(--muted-foreground)",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          }}
                           title="Редактировать количество использованных визитов"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "var(--muted)";
+                            e.currentTarget.style.color = "var(--foreground)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "transparent";
+                            e.currentTarget.style.color = "var(--muted-foreground)";
+                          }}
                         >
-                          <Edit className="h-3 w-3" />
+                          <Edit className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Осталось</span>
-                      <span className="font-medium text-sm" style={{ color: (paidVisits - usedVisits) <= 0 ? '#EF4444' : 'var(--foreground)' }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>Осталось</span>
+                      <span style={{ fontSize: "0.875rem", fontWeight: 600, color: (paidVisits - usedVisits) <= 0 ? '#EF4444' : 'var(--foreground)' }}>
                         {Math.max(0, paidVisits - usedVisits)}
                       </span>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Оплачено визитов</span>
-                      <span className="font-medium text-sm" style={{ color: 'var(--foreground)' }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>Оплачено визитов</span>
+                      <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--foreground)" }}>
                         {totalPaidVisits > 0 ? totalPaidVisits : '—'}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Использовано</span>
-                      <span className="font-medium text-sm" style={{ color: 'var(--foreground)' }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: "0.75rem", color: "var(--muted-foreground)" }}>Использовано</span>
+                      <span style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--foreground)" }}>
                         {usedVisits}
                       </span>
                     </div>
@@ -735,8 +914,33 @@ export default function BodyClientDetailPage({ params }: PageProps) {
             <button
               onClick={handleAddVisit}
               disabled={isAddingVisit}
-              className="w-full px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] hover:bg-[var(--muted)] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-              style={{ color: 'var(--foreground)' }}
+              style={{
+                width: "100%",
+                padding: "0.75rem 1rem",
+                borderRadius: "8px",
+                border: "1px solid var(--card-border)",
+                background: "transparent",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: isAddingVisit ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.5rem",
+                opacity: isAddingVisit ? 0.5 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!isAddingVisit) {
+                  e.currentTarget.style.background = "var(--muted)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isAddingVisit) {
+                  e.currentTarget.style.background = "transparent";
+                }
+              }}
             >
               {isAddingVisit ? (
                 <>
@@ -808,18 +1012,23 @@ export default function BodyClientDetailPage({ params }: PageProps) {
         </Card>
       </div>
 
-      <Card style={{ borderRadius: 24 }}>
+      <Card style={{ padding: "1.5rem" }}>
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-lg font-semibold mb-1" style={{ color: 'var(--foreground)' }}>История визитов</h2>
             <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Фиксируем для активации абонемента</p>
           </div>
-          <div className="p-2 rounded-lg" style={{ background: 'var(--muted)', border: '1px solid var(--card-border)' }}>
-            <History className="h-5 w-5" style={{ color: 'var(--foreground)' }} />
+          <div style={{ 
+            padding: "0.75rem", 
+            borderRadius: "12px", 
+            background: "var(--muted)", 
+            border: "1px solid var(--card-border)" 
+          }}>
+            <History className="h-5 w-5" style={{ color: "var(--foreground)" }} />
           </div>
         </div>
         {client.visits?.length ? (
-          <div className="space-y-3">
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             {[...client.visits].reverse().map((v) => {
               const visitDate = new Date(v);
               const dayOfWeek = visitDate.toLocaleDateString('ru-RU', { weekday: 'long' });
@@ -832,20 +1041,39 @@ export default function BodyClientDetailPage({ params }: PageProps) {
               return (
                 <div 
                   key={v} 
-                  className="flex items-center justify-between rounded-xl border border-[var(--card-border)] bg-[var(--background)] hover:bg-[var(--muted)] px-4 py-3 transition-all group"
+                  className="flex items-center justify-between group"
                   style={{ 
-                    borderColor: 'var(--card-border)',
+                    padding: "0.875rem 1rem",
+                    borderRadius: "12px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--background)",
+                    transition: "all 0.2s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--muted)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--background)";
                   }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: 'var(--muted)', border: '1px solid var(--card-border)' }}>
-                      <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                    <div style={{ 
+                      width: "2.5rem", 
+                      height: "2.5rem", 
+                      borderRadius: "10px", 
+                      display: "flex", 
+                      alignItems: "center", 
+                      justifyContent: "center",
+                      background: "var(--muted)",
+                      border: "1px solid var(--card-border)",
+                    }}>
+                      <CheckCircle2 className="h-5 w-5" style={{ color: "#10B981" }} />
                     </div>
                     <div>
-                      <div className="font-medium text-sm" style={{ color: 'var(--foreground)' }}>
+                      <div style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--foreground)" }}>
                         {formattedDate}
                       </div>
-                      <div className="text-xs mt-0.5" style={{ color: 'var(--muted-foreground)' }}>
+                      <div style={{ fontSize: "0.75rem", color: "var(--muted-foreground)", marginTop: "0.25rem" }}>
                         {dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1)}
                       </div>
                     </div>
@@ -853,9 +1081,28 @@ export default function BodyClientDetailPage({ params }: PageProps) {
                   <button
                     onClick={() => handleOpenDeleteVisit(v)}
                     disabled={deletingVisitDate === v}
-                    className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition disabled:opacity-50 disabled:cursor-not-allowed opacity-0 group-hover:opacity-100"
-                    style={{ color: deletingVisitDate === v ? 'var(--muted-foreground)' : '#EF4444' }}
+                    style={{
+                      padding: "0.5rem",
+                      borderRadius: "8px",
+                      border: "none",
+                      background: "transparent",
+                      color: deletingVisitDate === v ? 'var(--muted-foreground)' : '#EF4444',
+                      cursor: deletingVisitDate === v ? "not-allowed" : "pointer",
+                      transition: "all 0.2s ease",
+                      opacity: 0,
+                    }}
+                    className="group-hover:opacity-100"
                     title="Удалить визит"
+                    onMouseEnter={(e) => {
+                      if (deletingVisitDate !== v) {
+                        e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (deletingVisitDate !== v) {
+                        e.currentTarget.style.background = "transparent";
+                      }
+                    }}
                   >
                     {deletingVisitDate === v ? (
                       <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
@@ -868,71 +1115,187 @@ export default function BodyClientDetailPage({ params }: PageProps) {
             })}
           </div>
         ) : (
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style={{ background: 'var(--muted)', border: '1px solid var(--card-border)' }}>
+          <div style={{ textAlign: "center", padding: "3rem 1.5rem" }}>
+            <div style={{ 
+              display: "inline-flex", 
+              alignItems: "center", 
+              justifyContent: "center", 
+              width: "4rem", 
+              height: "4rem", 
+              borderRadius: "50%", 
+              marginBottom: "1rem",
+              background: "var(--muted)",
+              border: "1px solid var(--card-border)",
+            }}>
               <History className="h-8 w-8" style={{ color: 'var(--muted-foreground)' }} />
             </div>
-            <p className="text-sm font-medium mb-1" style={{ color: 'var(--foreground)' }}>Пока нет визитов</p>
-            <p className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Визиты будут отображаться здесь после фиксации</p>
+            <p style={{ fontSize: "0.875rem", fontWeight: 500, marginBottom: "0.25rem", color: 'var(--foreground)' }}>
+              Пока нет визитов
+            </p>
+            <p style={{ fontSize: "0.75rem", color: 'var(--muted-foreground)' }}>
+              Визиты будут отображаться здесь после фиксации
+            </p>
           </div>
         )}
       </Card>
 
       {/* Примечания */}
-      <Card style={{ borderRadius: 24 }}>
-        <div className="flex items-center justify-between mb-4">
+      <Card style={{ padding: "1.5rem" }}>
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>Примечания</h2>
             <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Противопоказания, заметки тренера</p>
           </div>
-          <BellRing className="h-5 w-5" />
+          <div style={{ 
+            padding: "0.75rem", 
+            borderRadius: "12px", 
+            background: "var(--muted)", 
+            border: "1px solid var(--card-border)" 
+          }}>
+            <BellRing className="h-5 w-5" style={{ color: "var(--foreground)" }} />
         </div>
-        <div className="space-y-3 text-sm">
-          <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-            <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Противопоказания</div>
-            <div style={{ color: 'var(--foreground)' }}>{client.contraindications || '—'}</div>
           </div>
-          <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-            <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Заметки тренера</div>
-            <div style={{ color: 'var(--foreground)' }}>{client.coachNotes || '—'}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+          <div style={{ 
+            padding: "1rem", 
+            borderRadius: "12px", 
+            border: "1px solid var(--card-border)", 
+            background: "var(--muted)" 
+          }}>
+            <div style={{ 
+              fontSize: "0.75rem", 
+              fontWeight: 500, 
+              color: "var(--muted-foreground)", 
+              textTransform: "uppercase", 
+              letterSpacing: "0.05em", 
+              marginBottom: "0.5rem" 
+            }}>
+              Противопоказания
+            </div>
+            <div style={{ fontSize: "0.875rem", color: 'var(--foreground)' }}>
+              {client.contraindications || '—'}
+            </div>
+          </div>
+          <div style={{ 
+            padding: "1rem", 
+            borderRadius: "12px", 
+            border: "1px solid var(--card-border)", 
+            background: "var(--muted)" 
+          }}>
+            <div style={{ 
+              fontSize: "0.75rem", 
+              fontWeight: 500, 
+              color: "var(--muted-foreground)", 
+              textTransform: "uppercase", 
+              letterSpacing: "0.05em", 
+              marginBottom: "0.5rem" 
+            }}>
+              Заметки тренера
+            </div>
+            <div style={{ fontSize: "0.875rem", color: 'var(--foreground)' }}>
+              {client.coachNotes || '—'}
+            </div>
           </div>
         </div>
       </Card>
 
       {/* История оплат */}
-      <Card style={{ borderRadius: 24 }}>
-        <div className="flex items-center justify-between mb-4">
+      <Card style={{ padding: "1.5rem" }}>
+        <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-lg font-semibold" style={{ color: 'var(--foreground)' }}>История оплат</h2>
               <p className="text-sm" style={{ color: 'var(--muted-foreground)' }}>Все оплаты клиента</p>
             </div>
-            <CreditCard className="h-5 w-5" />
+          <div style={{ 
+            padding: "0.75rem", 
+            borderRadius: "12px", 
+            background: "var(--muted)", 
+            border: "1px solid var(--card-border)" 
+          }}>
+            <CreditCard className="h-5 w-5" style={{ color: "var(--foreground)" }} />
+          </div>
           </div>
 
           {/* Статистика */}
           {totalPayments > 0 && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-                <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Всего оплат</div>
-                <div className="text-lg font-semibold mt-1" style={{ color: 'var(--foreground)' }}>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div style={{ 
+              padding: "1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <div style={{ 
+                fontSize: "0.75rem", 
+                fontWeight: 500, 
+                color: "var(--muted-foreground)", 
+                textTransform: "uppercase", 
+                letterSpacing: "0.05em", 
+                marginBottom: "0.5rem" 
+              }}>
+                Всего оплат
+              </div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: 'var(--foreground)' }}>
                   {totalPayments}
                 </div>
               </div>
-              <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-                <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Общая сумма</div>
-                <div className="text-lg font-semibold mt-1" style={{ color: 'var(--foreground)' }}>
+            <div style={{ 
+              padding: "1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <div style={{ 
+                fontSize: "0.75rem", 
+                fontWeight: 500, 
+                color: "var(--muted-foreground)", 
+                textTransform: "uppercase", 
+                letterSpacing: "0.05em", 
+                marginBottom: "0.5rem" 
+              }}>
+                Общая сумма
+              </div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: 'var(--foreground)' }}>
                   {formatPrice(totalAmount)} сум
                 </div>
               </div>
-              <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-                <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Наличные</div>
-                <div className="text-lg font-semibold mt-1" style={{ color: 'var(--foreground)' }}>
+            <div style={{ 
+              padding: "1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <div style={{ 
+                fontSize: "0.75rem", 
+                fontWeight: 500, 
+                color: "var(--muted-foreground)", 
+                textTransform: "uppercase", 
+                letterSpacing: "0.05em", 
+                marginBottom: "0.5rem" 
+              }}>
+                Наличные
+              </div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: 'var(--foreground)' }}>
                   {formatPrice(totalCash)} сум
                 </div>
               </div>
-              <div className="rounded-xl border border-[var(--card-border)] bg-[var(--muted)] p-3">
-                <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>Перевод</div>
-                <div className="text-lg font-semibold mt-1" style={{ color: 'var(--foreground)' }}>
+            <div style={{ 
+              padding: "1rem", 
+              borderRadius: "12px", 
+              border: "1px solid var(--card-border)", 
+              background: "var(--muted)" 
+            }}>
+              <div style={{ 
+                fontSize: "0.75rem", 
+                fontWeight: 500, 
+                color: "var(--muted-foreground)", 
+                textTransform: "uppercase", 
+                letterSpacing: "0.05em", 
+                marginBottom: "0.5rem" 
+              }}>
+                Перевод
+              </div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 700, color: 'var(--foreground)' }}>
                   {formatPrice(totalTransfer)} сум
                 </div>
               </div>
@@ -941,23 +1304,68 @@ export default function BodyClientDetailPage({ params }: PageProps) {
 
           {/* Таблица оплат */}
           {payments.length > 0 ? (
-            <div className="overflow-x-auto">
+          <div className="overflow-x-auto" style={{ borderRadius: "12px", border: "1px solid var(--card-border)", overflow: "hidden" }}>
               <table className="w-full" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-                <thead>
+              <thead style={{ background: "var(--muted)" }}>
                   <tr>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wide px-3 py-2 border-b border-[var(--card-border)]" style={{ color: 'var(--muted-foreground)' }}>
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em", 
+                    color: 'var(--muted-foreground)',
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
                       Дата
                     </th>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wide px-3 py-2 border-b border-[var(--card-border)]" style={{ color: 'var(--muted-foreground)' }}>
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em", 
+                    color: 'var(--muted-foreground)',
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
                       Услуга
                     </th>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wide px-3 py-2 border-b border-[var(--card-border)]" style={{ color: 'var(--muted-foreground)' }}>
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em", 
+                    color: 'var(--muted-foreground)',
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
                       Сумма
                     </th>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wide px-3 py-2 border-b border-[var(--card-border)]" style={{ color: 'var(--muted-foreground)' }}>
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em", 
+                    color: 'var(--muted-foreground)',
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
                       Метод
                     </th>
-                    <th className="text-left text-xs font-semibold uppercase tracking-wide px-3 py-2 border-b border-[var(--card-border)]" style={{ color: 'var(--muted-foreground)' }}>
+                  <th style={{ 
+                    padding: "0.75rem 1rem", 
+                    textAlign: "left", 
+                    fontSize: "0.75rem", 
+                    fontWeight: 600, 
+                    textTransform: "uppercase", 
+                    letterSpacing: "0.05em", 
+                    color: 'var(--muted-foreground)',
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
                       Действия
                     </th>
                   </tr>
@@ -966,54 +1374,104 @@ export default function BodyClientDetailPage({ params }: PageProps) {
                   {[...payments].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((payment) => (
                     <tr 
                       key={payment.public_id}
-                      className="hover:bg-[var(--muted)] cursor-pointer transition"
+                    style={{
+                      cursor: "pointer",
+                      transition: "background 0.2s ease",
+                    }}
                       onClick={() => handleOpenPaymentDetails(payment)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "var(--muted)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                    }}
                     >
-                      <td className="px-3 py-2 text-sm border-b border-[var(--card-border)]" style={{ color: 'var(--foreground)' }}>
+                    <td style={{ 
+                      padding: "0.75rem 1rem", 
+                      fontSize: "0.875rem", 
+                      borderBottom: "1px solid var(--card-border)", 
+                      color: 'var(--foreground)' 
+                    }}>
                         {formatDate(payment.created_at)}
                       </td>
-                      <td className="px-3 py-2 text-sm border-b border-[var(--card-border)]" style={{ color: 'var(--foreground)' }}>
+                    <td style={{ 
+                      padding: "0.75rem 1rem", 
+                      fontSize: "0.875rem", 
+                      borderBottom: "1px solid var(--card-border)", 
+                      color: 'var(--foreground)' 
+                    }}>
                         <div>
-                          <div className="font-medium">{payment.service_name || 'Услуга'}</div>
+                        <div style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
+                          {payment.service_name || 'Услуга'}
+                        </div>
                           {payment.service_category && (
-                            <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                          <div style={{ fontSize: "0.75rem", color: 'var(--muted-foreground)' }}>
                               {payment.service_category}
                             </div>
                           )}
                           {payment.quantity && payment.quantity > 1 && (
-                            <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                          <div style={{ fontSize: "0.75rem", color: 'var(--muted-foreground)' }}>
                               {payment.quantity} занятий
                             </div>
                           )}
                           {payment.hours && payment.hours > 0 && (
-                            <div className="text-xs" style={{ color: 'var(--muted-foreground)' }}>
+                          <div style={{ fontSize: "0.75rem", color: 'var(--muted-foreground)' }}>
                               {payment.hours} час(ов)
                             </div>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-sm border-b border-[var(--card-border)]" style={{ color: 'var(--foreground)' }}>
-                        <div className="font-semibold">{formatPrice(payment.total_amount || 0)} сум</div>
+                    <td style={{ 
+                      padding: "0.75rem 1rem", 
+                      fontSize: "0.875rem", 
+                      borderBottom: "1px solid var(--card-border)", 
+                      color: 'var(--foreground)' 
+                    }}>
+                      <div style={{ fontWeight: 600 }}>
+                        {formatPrice(payment.total_amount || 0)} сум
+                      </div>
                       </td>
-                      <td className="px-3 py-2 text-sm border-b border-[var(--card-border)]" style={{ color: 'var(--foreground)' }}>
-                        <div className="flex flex-col gap-1">
+                    <td style={{ 
+                      padding: "0.75rem 1rem", 
+                      fontSize: "0.875rem", 
+                      borderBottom: "1px solid var(--card-border)", 
+                      color: 'var(--foreground)' 
+                    }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                           {payment.cash_amount && payment.cash_amount > 0 && (
-                            <span className="text-xs">Наличные: {formatPrice(payment.cash_amount)}</span>
+                          <span style={{ fontSize: "0.75rem" }}>Наличные: {formatPrice(payment.cash_amount)}</span>
                           )}
                           {payment.transfer_amount && payment.transfer_amount > 0 && (
-                            <span className="text-xs">Перевод: {formatPrice(payment.transfer_amount)}</span>
+                          <span style={{ fontSize: "0.75rem" }}>Перевод: {formatPrice(payment.transfer_amount)}</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-sm border-b border-[var(--card-border)]">
+                    <td style={{ 
+                      padding: "0.75rem 1rem", 
+                      fontSize: "0.875rem", 
+                      borderBottom: "1px solid var(--card-border)" 
+                    }}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleDeletePayment(payment);
                           }}
-                          className="p-1.5 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition"
-                          style={{ color: '#EF4444' }}
+                        style={{
+                          padding: "0.5rem",
+                          borderRadius: "8px",
+                          border: "none",
+                          background: "transparent",
+                          color: '#EF4444',
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
                           title="Удалить оплату"
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "transparent";
+                        }}
                         >
                           <X className="h-4 w-4" />
                         </button>
@@ -1024,7 +1482,12 @@ export default function BodyClientDetailPage({ params }: PageProps) {
               </table>
             </div>
           ) : (
-            <div className="text-center py-8 text-sm" style={{ color: 'var(--muted-foreground)' }}>
+          <div style={{ 
+            textAlign: "center", 
+            padding: "3rem 1.5rem", 
+            fontSize: "0.875rem", 
+            color: 'var(--muted-foreground)' 
+          }}>
               Пока нет оплат
             </div>
           )}
@@ -1036,92 +1499,221 @@ export default function BodyClientDetailPage({ params }: PageProps) {
         onClose={() => setIsEditModalOpen(false)}
         title="Редактировать клиента"
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
-              Имя клиента
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Имя клиента *
             </label>
+              <div style={{ position: "relative" }}>
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
             <input
               type="text"
               value={editName}
               onChange={(e) => setEditName(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--foreground)]/20"
               placeholder="Например, Анна Смирнова"
+                  style={{
+                    width: "100%",
+                    padding: "0.625rem 0.875rem 0.625rem 2.5rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--background)",
+                    fontSize: "0.875rem",
+                    color: "var(--foreground)",
+                    outline: "none",
+                    transition: "all 0.2s ease",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
-              Телефон
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Телефон *
             </label>
+              <div style={{ position: "relative" }}>
+                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: "var(--muted-foreground)" }} />
             <input
               type="tel"
               value={editPhone}
               onChange={(e) => setEditPhone(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--foreground)]/20"
               placeholder="+998 90 000 00 00"
+                  style={{
+                    width: "100%",
+                    padding: "0.625rem 0.875rem 0.625rem 2.5rem",
+                    borderRadius: "8px",
+                    border: "1px solid var(--card-border)",
+                    background: "var(--background)",
+                    fontSize: "0.875rem",
+                    color: "var(--foreground)",
+                    outline: "none",
+                    transition: "all 0.2s ease",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                    e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--card-border)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Номер договора
             </label>
             <input
               type="text"
               value={editContractNumber}
               onChange={(e) => setEditContractNumber(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--foreground)]/20"
               placeholder="Например, D-2024-015"
+                style={{
+                  width: "100%",
+                  padding: "0.625rem 0.875rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--background)",
+                  fontSize: "0.875rem",
+                  color: "var(--foreground)",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Номер абонемента
             </label>
             <input
               type="text"
               value={editSubscriptionNumber}
               onChange={(e) => setEditSubscriptionNumber(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--foreground)]/20"
               placeholder="Например, S-110045"
+                style={{
+                  width: "100%",
+                  padding: "0.625rem 0.875rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--background)",
+                  fontSize: "0.875rem",
+                  color: "var(--foreground)",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Дата рождения
             </label>
             <input
               type="date"
               value={editBirthDate}
               onChange={(e) => setEditBirthDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--foreground)]/20"
+                style={{
+                  width: "100%",
+                  padding: "0.625rem 0.875rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--background)",
+                  fontSize: "0.875rem",
+                  color: "var(--foreground)",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                  cursor: "pointer",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Instagram
             </label>
             <input
               type="text"
               value={editInstagram}
               onChange={(e) => setEditInstagram(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--foreground)]/20"
               placeholder="@username"
+                style={{
+                  width: "100%",
+                  padding: "0.625rem 0.875rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--background)",
+                  fontSize: "0.875rem",
+                  color: "var(--foreground)",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Направление
             </label>
             <select
               value={editDirection}
               onChange={(e) => setEditDirection(e.target.value as ClientDirection)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--foreground)]/20"
+                style={{
+                  width: "100%",
+                  padding: "0.625rem 0.875rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--background)",
+                  fontSize: "0.875rem",
+                  color: "var(--foreground)",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                  cursor: "pointer",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
             >
               <option value="Body">Body&mind</option>
               <option value="Coworking">Коворкинг</option>
@@ -1129,34 +1721,102 @@ export default function BodyClientDetailPage({ params }: PageProps) {
               <option value="Coffee">Детская</option>
             </select>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--foreground)' }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              <label style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted-foreground)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Статус
             </label>
             <select
               value={editStatus}
               onChange={(e) => setEditStatus(e.target.value as ClientStatus)}
-              className="w-full px-3 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--foreground)]/20"
+                style={{
+                  width: "100%",
+                  padding: "0.625rem 0.875rem",
+                  borderRadius: "8px",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--background)",
+                  fontSize: "0.875rem",
+                  color: "var(--foreground)",
+                  outline: "none",
+                  transition: "all 0.2s ease",
+                  cursor: "pointer",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
             >
               <option value="Новый">Новый</option>
               <option value="Активный">Активный</option>
               <option value="Ушедший">Ушедший</option>
             </select>
+            </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--card-border)]">
+          <div style={{ display: "flex", gap: "0.75rem", paddingTop: "1.5rem", borderTop: "1px solid var(--card-border)", justifyContent: "flex-end" }}>
             <button
               onClick={() => setIsEditModalOpen(false)}
               disabled={isSaving}
-              className="px-4 py-2 rounded-lg border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] hover:bg-[var(--muted)] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
+                border: "1px solid var(--card-border)",
+                background: "transparent",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: isSaving ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                opacity: isSaving ? 0.5 : 1,
+              }}
+              onMouseEnter={(e) => {
+                if (!isSaving) {
+                  e.currentTarget.style.background = "var(--muted)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSaving) {
+                  e.currentTarget.style.background = "transparent";
+                }
+              }}
             >
               Отмена
             </button>
             <button
               onClick={handleSaveEdit}
               disabled={isSaving || !editName.trim() || !editPhone.trim()}
-              className="px-4 py-2 rounded-lg border border-transparent bg-[var(--foreground)] text-[var(--background)] hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              style={{
+                padding: "0.75rem 1.5rem",
+                borderRadius: "8px",
+                border: "1px solid transparent",
+                background: isSaving || !editName.trim() || !editPhone.trim()
+                  ? "#9ca3af"
+                  : "var(--foreground)",
+                color: isSaving || !editName.trim() || !editPhone.trim()
+                  ? "#ffffff"
+                  : "var(--background)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                cursor: isSaving || !editName.trim() || !editPhone.trim() ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                opacity: isSaving || !editName.trim() || !editPhone.trim() ? 0.5 : 1,
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+              }}
+              onMouseEnter={(e) => {
+                if (!isSaving && editName.trim() && editPhone.trim()) {
+                  e.currentTarget.style.opacity = "0.9";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSaving && editName.trim() && editPhone.trim()) {
+                  e.currentTarget.style.opacity = "1";
+                }
+              }}
             >
               {isSaving ? (
                 <>

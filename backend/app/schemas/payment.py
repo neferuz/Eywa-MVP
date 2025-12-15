@@ -36,7 +36,7 @@ class PaymentUpdate(BaseModel):
     total_amount: int | None = Field(None, ge=0)
     cash_amount: int | None = Field(None, ge=0)
     transfer_amount: int | None = Field(None, ge=0)
-    quantity: int | None = Field(None, ge=1)
+    quantity: int | None = Field(None, ge=0)  # Разрешаем 0 для списания
     hours: int | None = Field(None, ge=1)
     comment: str | None = None
     status: Literal["pending", "completed", "cancelled"] | None = None

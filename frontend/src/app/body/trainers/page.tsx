@@ -178,23 +178,70 @@ export default function BodyTrainersPage() {
   };
 
   return (
-    <div className="body-trainers">
-      <div className="rounded-2xl bg-[var(--panel)] p-4 mb-4">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="body-clients__search">
-              <Search className="body-clients__search-icon" />
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      {/* Header with search and button */}
+      <Card style={{ padding: "1.5rem" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div style={{ display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: "1rem", width: "100%" }}>
+            <div style={{ position: "relative", flex: 1, maxWidth: "400px" }}>
+              <Search 
+                className="absolute left-4 h-5 w-5 pointer-events-none" 
+                style={{ color: "var(--foreground)", opacity: 0.5, top: "50%", transform: "translateY(-50%)" }} 
+              />
               <input
                 type="text"
                 placeholder="Поиск по имени, телефону или направлению"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
+                style={{
+                  width: "100%",
+                  paddingLeft: "2.75rem",
+                  paddingRight: "1rem",
+                  paddingTop: "0.75rem",
+                  paddingBottom: "0.75rem",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
             </div>
             <button
               type="button"
               className="payments-add-btn"
               onClick={() => setIsAddOpen(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.625rem 1.25rem",
+                borderRadius: "12px",
+                border: "none",
+                background: "#000",
+                color: "#fff",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                flexShrink: 0,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#1a1a1a";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#000";
+              }}
             >
               <Plus className="h-4 w-4" />
               Добавить тренера
@@ -202,21 +249,49 @@ export default function BodyTrainersPage() {
           </div>
 
           {allDirections.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+              <span style={{ 
+                display: "inline-flex", 
+                alignItems: "center", 
+                gap: "0.25rem", 
+                fontSize: "0.75rem", 
+                fontWeight: 600, 
+                textTransform: "uppercase", 
+                letterSpacing: "0.05em",
+                color: "var(--muted-foreground)" 
+              }}>
                 <Filter className="h-4 w-4" /> Направления
               </span>
-              <div className="flex gap-2 flex-wrap">
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                 {allDirections.map((dir) => (
                   <button
                     key={dir}
                     type="button"
-                    className={`px-3 py-1 rounded-full border text-xs font-medium transition ${
-                      directionFilter === dir
-                        ? "bg-[var(--foreground)] text-white border-transparent shadow-sm"
-                        : "bg-transparent text-[var(--foreground)] border-[var(--card-border)] hover:border-[var(--foreground)]/50"
-                    }`}
                     onClick={() => setDirectionFilter(directionFilter === dir ? null : dir)}
+                    style={{
+                      padding: "0.375rem 0.75rem",
+                      borderRadius: "9999px",
+                      border: "1px solid var(--card-border)",
+                      background: directionFilter === dir ? "var(--foreground)" : "transparent",
+                      color: directionFilter === dir ? "#fff" : "var(--foreground)",
+                      fontSize: "0.75rem",
+                      fontWeight: 500,
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      boxShadow: directionFilter === dir ? "0 2px 4px rgba(0, 0, 0, 0.1)" : "none",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (directionFilter !== dir) {
+                        e.currentTarget.style.borderColor = "var(--foreground)";
+                        e.currentTarget.style.opacity = "0.7";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (directionFilter !== dir) {
+                        e.currentTarget.style.borderColor = "var(--card-border)";
+                        e.currentTarget.style.opacity = "1";
+                      }
+                    }}
                   >
                     {dir}
                   </button>
@@ -225,152 +300,376 @@ export default function BodyTrainersPage() {
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {error && (
-        <div className="body-services__error flex items-center gap-2">
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "0.5rem", 
+          padding: "0.75rem 1rem", 
+          borderRadius: "12px", 
+          background: "rgba(239, 68, 68, 0.1)", 
+          color: "#EF4444",
+          fontSize: "0.875rem"
+        }}>
           <AlertCircle className="h-4 w-4" />
           <span>{error}</span>
         </div>
       )}
 
       {loading ? (
-        <div className="body-services__empty">
+        <div style={{ 
+          display: "flex", 
+          flexDirection: "column", 
+          alignItems: "center", 
+          justifyContent: "center", 
+          gap: "1rem", 
+          padding: "3rem",
+          color: "var(--muted-foreground)"
+        }}>
           <Loader2 className="h-5 w-5 animate-spin" />
-          Загрузка тренеров...
+          <span style={{ fontSize: "0.875rem" }}>Загрузка тренеров...</span>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="body-services__empty">
-          <Search className="h-8 w-8 text-[var(--muted-foreground)]" />
-          <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+        <div style={{ 
+          display: "flex", 
+          flexDirection: "column", 
+          alignItems: "center", 
+          justifyContent: "center", 
+          gap: "1rem", 
+          padding: "3rem",
+          color: "var(--muted-foreground)"
+        }}>
+          <Search className="h-8 w-8" style={{ opacity: 0.5 }} />
+          <p style={{ fontSize: "0.875rem", textAlign: "center" }}>
             {search || directionFilter
               ? "По вашему запросу ничего не найдено. Попробуйте изменить параметры поиска или фильтры."
               : "Тренеры не найдены"}
           </p>
         </div>
       ) : (
-        <section className="body-trainers__grid grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "1rem" }}>
           {filtered.map((trainer) => (
-            <div key={trainer.id} className="relative">
-              <Link href={`/body/trainers/${trainer.id}`}>
-                <Card className="body-trainers__card" style={{ cursor: "pointer" }}>
-                  <div className="body-trainers__card-head">
-                    <div className="body-trainers__avatar">
-                      <User className="h-4 w-4" />
+            <div key={trainer.id} style={{ position: "relative" }}>
+              <Link href={`/body/trainers/${trainer.id}`} style={{ textDecoration: "none" }}>
+                <Card style={{ 
+                  padding: "1.5rem", 
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1rem",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 1px 3px rgba(0, 0, 0, 0.1)";
+                }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <div style={{
+                      width: "48px",
+                      height: "48px",
+                      borderRadius: "12px",
+                      background: "var(--muted)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}>
+                      <User className="h-5 w-5" style={{ color: "var(--foreground)" }} />
                     </div>
-                    <div className="body-trainers__card-meta">
-                      <div className="body-trainers__card-name">{trainer.full_name}</div>
-                      <span className="body-trainers__card-phone">{trainer.phone}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ 
+                        fontSize: "1rem", 
+                        fontWeight: 600, 
+                        color: "var(--foreground)",
+                        marginBottom: "0.25rem",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap"
+                      }}>
+                        {trainer.full_name}
+                      </div>
+                      <div style={{ 
+                        fontSize: "0.875rem", 
+                        color: "var(--muted-foreground)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap"
+                      }}>
+                        {trainer.phone}
+                      </div>
                     </div>
                   </div>
 
-                <div className="body-trainers__card-specialty">
-                  <span>{trainer.directions?.join(" · ") || "Направления не указаны"}</span>
-                </div>
-
-                <div className="body-trainers__card-stats">
-                  <div>
-                    <Activity className="h-3.5 w-3.5" />
-                    <span>Нажмите, чтобы открыть профиль тренера</span>
+                  <div style={{ 
+                    fontSize: "0.875rem", 
+                    color: "var(--muted-foreground)",
+                    padding: "0.5rem 0",
+                    borderTop: "1px solid var(--card-border)",
+                    borderBottom: "1px solid var(--card-border)",
+                  }}>
+                    {trainer.directions?.join(" · ") || "Направления не указаны"}
                   </div>
-                </div>
 
-                {trainer.directions?.length ? (
-                  <div className="body-trainers__tags">
-                    {trainer.directions.map((tag) => (
-                      <span key={tag}>{tag}</span>
-                    ))}
+                  {trainer.directions?.length ? (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                      {trainer.directions.map((tag) => (
+                        <span 
+                          key={tag}
+                          style={{
+                            padding: "0.25rem 0.625rem",
+                            borderRadius: "6px",
+                            background: "var(--muted)",
+                            color: "var(--foreground)",
+                            fontSize: "0.75rem",
+                            fontWeight: 500,
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div style={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: "0.5rem",
+                    fontSize: "0.875rem",
+                    color: "var(--muted-foreground)",
+                    marginTop: "auto",
+                    paddingTop: "0.75rem",
+                    borderTop: "1px solid var(--card-border)",
+                  }}>
+                    <Activity className="h-4 w-4" />
+                    <span>Перейти в профиль тренера</span>
                   </div>
-                ) : null}
-
-                <div className="body-trainers__card-footer">
-                  <span>Перейти в профиль тренера</span>
-                </div>
-              </Card>
+                </Card>
               </Link>
               <button
                 type="button"
                 aria-label="Удалить тренера"
-                className="absolute top-3 right-3 rounded-full border border-[var(--card-border)] bg-[var(--muted)] p-1.5 text-[var(--muted-foreground)] hover:text-red-600 hover:border-red-200 transition z-10"
                 onClick={(event) => handleDeleteClick(trainer.id, trainer.full_name, event)}
+                style={{
+                  position: "absolute",
+                  top: "1rem",
+                  right: "1rem",
+                  width: "32px",
+                  height: "32px",
+                  borderRadius: "50%",
+                  border: "1px solid var(--card-border)",
+                  background: "var(--muted)",
+                  color: "var(--muted-foreground)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  zIndex: 10,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = "#EF4444";
+                  e.currentTarget.style.borderColor = "#EF4444";
+                  e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = "var(--muted-foreground)";
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.background = "var(--muted)";
+                }}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
           ))}
-        </section>
+        </div>
       )}
 
+      {/* Add Trainer Modal */}
       <Modal open={isAddOpen} onClose={() => setIsAddOpen(false)} title="Добавить тренера">
-        <div className="body-clients__add-modal">
-          <div className="body-clients__add-modal-grid">
-            <div className="body-clients__add-field">
-              <label>Имя и фамилия</label>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem" }}>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem", color: "var(--foreground)" }}>
+              <span style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Имя и фамилия</span>
               <input
                 type="text"
                 placeholder="Например, Анна Лебедева"
                 value={form.full_name}
                 onChange={(event) => setForm((prev) => ({ ...prev, full_name: event.target.value }))}
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.625rem 0.875rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
-            </div>
-            <div className="body-clients__add-field">
-              <label>Номер телефона</label>
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem", color: "var(--foreground)" }}>
+              <span style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Номер телефона</span>
               <input
                 type="tel"
                 placeholder="+998 90 000 00 00"
                 value={form.phone}
                 onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
+                style={{
+                  width: "100%",
+                  borderRadius: "12px",
+                  border: "1.5px solid var(--card-border)",
+                  background: "var(--background)",
+                  color: "var(--foreground)",
+                  padding: "0.625rem 0.875rem",
+                  fontSize: "0.875rem",
+                  transition: "all 0.2s ease",
+                  fontFamily: "inherit",
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                  e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
               />
-            </div>
-            <div className="body-clients__add-field">
-              <label>Направления</label>
-              <div className="flex flex-col gap-2">
-                <label className="flex items-center gap-2 cursor-pointer">
+            </label>
+            <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem", color: "var(--foreground)" }}>
+              <span style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Направления</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", padding: "0.75rem", borderRadius: "12px", background: "var(--muted)", border: "1px solid var(--card-border)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={form.directions.includes("Body Mind")}
                     onChange={() => toggleDirection("Body Mind")}
-                    className="w-4 h-4 rounded border-[var(--card-border)]"
+                    style={{
+                      width: "18px",
+                      height: "18px",
+                      borderRadius: "4px",
+                      border: "1.5px solid var(--card-border)",
+                      cursor: "pointer",
+                      accentColor: "#6366F1",
+                    }}
                   />
-                  <span>Body Mind</span>
+                  <span style={{ fontSize: "0.875rem", color: "var(--foreground)" }}>Body Mind</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label style={{ display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer" }}>
                   <input
                     type="checkbox"
                     checked={form.directions.includes("Pilates Reformer")}
                     onChange={() => toggleDirection("Pilates Reformer")}
-                    className="w-4 h-4 rounded border-[var(--card-border)]"
+                    style={{
+                      width: "18px",
+                      height: "18px",
+                      borderRadius: "4px",
+                      border: "1.5px solid var(--card-border)",
+                      cursor: "pointer",
+                      accentColor: "#6366F1",
+                    }}
                   />
-                  <span>Pilates Reformer</span>
+                  <span style={{ fontSize: "0.875rem", color: "var(--foreground)" }}>Pilates Reformer</span>
                 </label>
               </div>
-            </div>
+            </label>
           </div>
 
-          <div className="body-clients__add-field">
-            <label>Комментарии</label>
+          <label style={{ display: "flex", flexDirection: "column", gap: "0.5rem", color: "var(--foreground)" }}>
+            <span style={{ fontWeight: 600, fontSize: "0.8125rem", color: "var(--foreground)", letterSpacing: "-0.01em", marginBottom: "0.375rem" }}>Комментарии</span>
             <textarea
               rows={3}
               placeholder="Особенности тренера, предпочтения по нагрузке и т.д."
               value={form.comment}
               onChange={(event) => setForm((prev) => ({ ...prev, comment: event.target.value }))}
+              style={{
+                width: "100%",
+                borderRadius: "12px",
+                border: "1.5px solid var(--card-border)",
+                background: "var(--background)",
+                color: "var(--foreground)",
+                padding: "0.75rem 1rem",
+                fontSize: "0.875rem",
+                transition: "all 0.2s ease",
+                fontFamily: "inherit",
+                resize: "vertical",
+                minHeight: "100px",
+                lineHeight: "1.5",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
+                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = "var(--card-border)";
+                e.currentTarget.style.boxShadow = "none";
+              }}
             />
-          </div>
+          </label>
 
-          <div className="body-clients__add-actions">
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "0.5rem", paddingTop: "1.25rem", borderTop: "1px solid var(--card-border)" }}>
             <button
               type="button"
-              className="btn-outline body-clients__add-actions-secondary"
               onClick={() => setIsAddOpen(false)}
               disabled={isSubmitting}
+              style={{
+                padding: "0.625rem 1.25rem",
+                borderRadius: "12px",
+                border: "1px solid var(--card-border)",
+                background: "transparent",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                opacity: isSubmitting ? 0.5 : 1,
+                pointerEvents: isSubmitting ? "none" : "auto",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--muted)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
             >
               Отмена
             </button>
             <button
               type="button"
-              className="btn-outline body-clients__add-actions-primary"
               onClick={handleAddTrainer}
               disabled={isSubmitting}
+              style={{
+                padding: "0.625rem 1.25rem",
+                borderRadius: "12px",
+                border: "none",
+                background: isSubmitting ? "#9ca3af" : "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)",
+                color: "#fff",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                boxShadow: isSubmitting ? "none" : "0 4px 12px rgba(99, 102, 241, 0.25)",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                justifyContent: "center",
+                opacity: isSubmitting ? 0.5 : 1,
+                pointerEvents: isSubmitting ? "none" : "auto",
+              }}
+              onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.boxShadow = "0 6px 16px rgba(99, 102, 241, 0.35)"; }}
+              onMouseLeave={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.25)"; }}
             >
               {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
               Сохранить
@@ -379,6 +678,7 @@ export default function BodyTrainersPage() {
         </div>
       </Modal>
 
+      {/* Delete Confirmation Modal */}
       <Modal
         open={deleteConfirmOpen}
         onClose={() => {
@@ -389,47 +689,76 @@ export default function BodyTrainersPage() {
         }}
         title="Подтверждение удаления"
       >
-        <div className="space-y-5">
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "rgba(239, 68, 68, 0.1)" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: "1rem" }}>
+            <div style={{ 
+              flexShrink: 0, 
+              width: "48px", 
+              height: "48px", 
+              borderRadius: "50%", 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center",
+              background: "rgba(239, 68, 68, 0.1)" 
+            }}>
               <AlertTriangle className="h-6 w-6" style={{ color: "#EF4444" }} />
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium mb-1" style={{ color: "var(--foreground)" }}>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: "0.875rem", fontWeight: 500, marginBottom: "0.25rem", color: "var(--foreground)" }}>
                 Вы уверены, что хотите удалить тренера?
               </p>
-              <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+              <p style={{ fontSize: "0.875rem", color: "var(--muted-foreground)" }}>
                 Тренер <strong>{trainerToDelete?.name}</strong> будет удален. Это действие нельзя отменить.
               </p>
             </div>
           </div>
 
-          <div className="flex gap-3 justify-end pt-2 border-t" style={{ borderColor: "var(--card-border)" }}>
+          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", paddingTop: "0.5rem", borderTop: "1px solid var(--card-border)" }}>
             <button
-              className="px-5 py-2.5 rounded-xl text-sm font-medium transition-all"
-              style={{
-                border: "1px solid var(--card-border)",
-                background: "transparent",
-                color: "var(--foreground)",
-              }}
               onClick={() => {
                 setDeleteConfirmOpen(false);
                 setTrainerToDelete(null);
               }}
               disabled={isDeleting}
+              style={{
+                padding: "0.625rem 1.25rem",
+                borderRadius: "12px",
+                border: "1px solid var(--card-border)",
+                background: "transparent",
+                color: "var(--foreground)",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                opacity: isDeleting ? 0.5 : 1,
+                pointerEvents: isDeleting ? "none" : "auto",
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "var(--muted)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
             >
               Отмена
             </button>
             <button
-              className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-all disabled:opacity-50"
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
               style={{
+                padding: "0.625rem 1.25rem",
+                borderRadius: "12px",
+                border: "none",
                 background: isDeleting
                   ? "#9ca3af"
                   : "linear-gradient(135deg, #EF4444 0%, #DC2626 100%)",
+                color: "#fff",
+                fontSize: "0.875rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                transition: "all 0.2s ease",
                 boxShadow: isDeleting ? "none" : "0 4px 12px rgba(239, 68, 68, 0.25)",
+                opacity: isDeleting ? 0.5 : 1,
+                pointerEvents: isDeleting ? "none" : "auto",
               }}
-              onClick={handleDeleteConfirm}
-              disabled={isDeleting}
+              onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.boxShadow = "0 6px 16px rgba(239, 68, 68, 0.35)"; }}
+              onMouseLeave={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.boxShadow = "0 4px 12px rgba(239, 68, 68, 0.25)"; }}
             >
               {isDeleting ? "Удаление..." : "Удалить"}
             </button>
@@ -439,5 +768,3 @@ export default function BodyTrainersPage() {
     </div>
   );
 }
-
-
