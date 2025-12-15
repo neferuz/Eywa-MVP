@@ -153,7 +153,9 @@ export default function ApplicationDetailPage({ params }: PageProps) {
   }
 
   const stage = STAGES.find((s) => s.id === application.stage);
-  const tone = stage ? TONE_PRESETS[stage.tone] : { tagBg: "#6B7280", tagColor: "#FFFFFF" };
+  const tone = stage && stage.tone in TONE_PRESETS 
+    ? TONE_PRESETS[stage.tone as keyof typeof TONE_PRESETS] 
+    : { tagBg: "#6B7280", tagColor: "#FFFFFF", gradient: "linear-gradient(135deg, rgba(107, 114, 128, 0.1), rgba(75, 85, 99, 0.05))" };
   const chatHistory = application.chatHistory || [];
   
   const platformIcon = application.platform === "instagram" 

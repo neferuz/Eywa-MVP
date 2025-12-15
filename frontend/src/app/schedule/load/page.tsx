@@ -1706,7 +1706,7 @@ export default function ScheduleLoadPage() {
     try {
       if (arg.event?.title) {
         displayText = String(arg.event.title);
-      } else if (arg.text) {
+      } else if ('text' in arg && arg.text) {
         // arg.text can be string, HTMLElement, or object
         if (typeof arg.text === "string") {
           displayText = arg.text;

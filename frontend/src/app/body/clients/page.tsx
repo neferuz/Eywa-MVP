@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Card from "@/components/Card";
 import Link from "next/link";
@@ -45,7 +45,7 @@ const statusTone: Record<ClientStatus, string> = {
   Ушедший: "rgba(220, 38, 38, 0.85)",
 };
 
-export default function BodyClientsPage() {
+function BodyClientsPageContent() {
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [clients, setClients] = useState<ClientProfile[]>([]);
@@ -114,10 +114,12 @@ export default function BodyClientsPage() {
       setLoading(true);
       setError(null);
       try {
+        // Преобразуем direction для API: "Pilates Reformer" -> "Body"
+        const apiDirection = directionFilter === "Pilates Reformer" ? "Body" : directionFilter;
         const data = await fetchClientsFromApi<ClientProfile>(
           {
             query: search || null,
-            direction: directionFilter,
+            direction: apiDirection as "Body" | "Coworking" | "Coffee" | null | undefined,
             status: statusFilter,
           },
           { cache: "no-store" },
@@ -164,11 +166,11 @@ export default function BodyClientsPage() {
         name: newClientName.trim(),
         phone: newClientPhone.trim(),
         direction: clientDirection,
-        status: "Новый",
+        status: "Новый" as const,
         contractNumber: newClientContract.trim() || null,
         subscriptionNumber: newClientSubscriptionNumber.trim() || null,
         birthDate: newClientBirthDate?.trim() || null,
-        source: "Instagram",
+        source: "Instagram" as const,
       };
       
       console.log("Creating client with payload:", payload);
@@ -184,10 +186,12 @@ export default function BodyClientsPage() {
       });
 
       // Перезагружаем список клиентов
+      // Преобразуем direction для API: "Pilates Reformer" -> "Body"
+      const apiDirection = directionFilter === "Pilates Reformer" ? "Body" : directionFilter;
       const data = await fetchClientsFromApi<ClientProfile>(
         {
           query: search || null,
-          direction: directionFilter,
+          direction: apiDirection as "Body" | "Coworking" | "Coffee" | null | undefined,
           status: statusFilter,
         },
         { cache: "no-store" },
@@ -865,5 +869,13 @@ export default function BodyClientsPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+export default function BodyClientsPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center", color: "var(--muted-foreground)" }}>Загрузка...</div>}>
+      <BodyClientsPageContent />
+    </Suspense>
   );
 }

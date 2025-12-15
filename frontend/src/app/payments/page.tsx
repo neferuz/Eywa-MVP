@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Card from "@/components/Card";
@@ -63,7 +63,7 @@ const PAYMENT_METHODS = [
   { id: "transfer", label: "Перевод" },
 ];
 
-export default function PaymentsPage() {
+function PaymentsPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -2209,5 +2209,13 @@ export default function PaymentsPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+export default function PaymentsPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: "2rem", textAlign: "center", color: "var(--muted-foreground)" }}>Загрузка...</div>}>
+      <PaymentsPageContent />
+    </Suspense>
   );
 }

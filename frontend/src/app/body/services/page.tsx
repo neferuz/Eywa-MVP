@@ -839,6 +839,9 @@ export default function BodyServicesPage() {
                       priceDisplay: formatPrice(prev.price),
                     }));
                   }
+                  // Сбрасываем стили фокуса
+                  e.currentTarget.style.borderColor = "var(--card-border)";
+                  e.currentTarget.style.boxShadow = "none";
                 }}
                 placeholder="Например: 100 000"
                 style={{
@@ -855,10 +858,6 @@ export default function BodyServicesPage() {
                 onFocus={(e) => {
                   e.currentTarget.style.borderColor = "rgba(99, 102, 241, 0.6)";
                   e.currentTarget.style.boxShadow = "0 0 0 3px rgba(99, 102, 241, 0.1)";
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = "var(--card-border)";
-                  e.currentTarget.style.boxShadow = "none";
                 }}
               />
             </label>
